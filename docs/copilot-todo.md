@@ -52,16 +52,27 @@
 
 ## Roadmap（Copilotにやってほしいこと）
 
+### 0. Decision: default is **Vite**
+
+We chose **A: default = Vite**.
+
+- Keep `vite` as the default client dev/build tool.
+- Keep server code framework-agnostic, but assume the default template includes Vite.
+- Keep an escape hatch: `handleDocumentRequest(..., { entrySrc })` so a future `--no-vite` template can swap the entry.
+- Do NOT implement `--no-vite` now unless it is trivial.
+
 ### A. CLI（Next.jsっぽく `bunx` で作れるように）
 
 **目標**：
 
 - `bunx create-vitrio-start my-app`
   - テンプレ生成
-  - `package.json` / scripts / tsconfig / vite config
+  - `package.json` / scripts / tsconfig / **vite config**
   - 初期 `src/routes.tsx`（例ルート）
   - 初期 `src/server/framework.tsx` 等
   - `bun install` を実行するかはオプション
+
+**Template must include Vite by default**.
 
 **実装案**（推奨）：
 
@@ -84,8 +95,17 @@
   - `bunx create-vitrio-start`
   - `cd` → `bun install` → `bun dev`
 
+- Vite前提の説明を明記
+  - dev: Vite client served from `/src/*` in dev (current approach)
+  - build: `bunx vite build` → `dist/client`
+
 - `docs/` に「route追加のコピペテンプレ」増やす
   - loader/action/validation/redirect/notFound
+
+- “AI-friendly conventions” を docs に書く
+  - 例：routeは `src/routes.tsx` に集約
+  - 例：server entryは `src/server/framework.tsx` に集約
+  - 例：helperは `src/server/*` に置く
 
 
 ### C. アセット配信（本番で困らない最低限）
@@ -142,3 +162,39 @@
 - 既存コードの思想："super simple" を最優先
 - 依存追加は慎重に
 - 何かを増やすなら **docs + tests** を一緒に足す
+
+### “もっと欲張っていい” 追加アイデア（ただし魔術なし）
+
+- [ ] **Static HTML error pages** の改善
+  - 404/500 HTML を最低限のCSSで見やすく
+  - error id / request id を表示（prodは伏せる）
+
+- [ ] **Config surface** を整理
+  - `src/server/config.ts` で集約（already exists）
+  - `BASE_PATH` / `TRUST_PROXY` / `LOG_LEVEL` など
+
+- [ ] **Typed route helpers**
+  - `defineRoute({ path, loader, action, component })` みたいな薄いヘルパ
+  - ただし複雑なコード生成はしない
+
+- [ ] **Better dev ergonomics**
+  - `bun dev` で server+vite を起動している前提の説明強化
+  - “どのURLがSSRで、どのURLがViteのモジュール配信か” を docs 化
+
+- [ ] **More benches (optional)**
+  - route matching bench already exists
+  - SSR render bench (very small) もあって良い
+
+- [ ] **Release checklist**
+  - template update
+  - docs update
+  - tests green
+
+- [ ] **Minimal examples**
+  - login page (POST action + redirect)
+  - protected route (loader does redirect)
+  - notFound route (loader returns notFound)
+
+- [ ] **CI hardening**
+  - `bun test` + `bun run typecheck`
+  - cache bun dependencies
