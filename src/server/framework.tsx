@@ -139,19 +139,23 @@ export async function handleDocumentRequest(
   const locAtom = v({ path, query: url.search, hash: url.hash })
   const cacheMap = new Map<string, any>()
 
-  // Find first matching route (excluding catch-all).
-  const matched = routes.find(
-    (r) => r.path !== '*' && !!matchCompiled(r._compiled, path),
-  )
+  // Find all matching routes (excluding catch-all). This enables simple "layout"
+  // style prefix routes like `/parent/*` + a leaf `/parent/child`.
+  const matchedRoutes = routes
+    .filter((r) => r.path !== '*' && !!matchCompiled(r._compiled, path))
+    // parent first (shorter patterns first)
+    .sort((a, b) => a._compiled.segments.length - b._compiled.segments.length)
 
   // Best-effort status code: 404 when no route matches.
   // (We still render the app; App includes a "*" route for the UI.)
-  let hasMatch = !!matched
+  let hasMatch = matchedRoutes.length > 0
 
   // Allow loader to return redirect/notFound (no magic).
   // Also: prime Vitrio loader cache so Route() does not execute loader twice in SSR.
-  if (matched?.loader) {
-    const params = matchCompiled(matched._compiled, path) || {}
+  for (const r of matchedRoutes) {
+    if (!r.loader) continue
+
+    const params = matchCompiled(r._compiled, path) || {}
     const ctx = {
       params,
       search: url.searchParams,
@@ -159,26 +163,27 @@ export async function handleDocumentRequest(
     }
 
     try {
-      const out = await matched.loader(ctx as any)
+      const out = await r.loader(ctx as any)
       if (isRedirect(out)) {
         return c.redirect(out.to, (out.status ?? 302) as any)
       }
       if (isNotFound(out)) {
         hasMatch = false
-      } else {
-        // Prime cache entry (routeId == path by default)
-        const key = makeRouteCacheKey(matched.path, ctx as any)
-        cacheMap.set(key, { status: 'fulfilled', value: out })
+        break
       }
+
+      // Prime cache entry (routeId == path by default)
+      const key = makeRouteCacheKey(r.path, ctx as any)
+      cacheMap.set(key, { status: 'fulfilled', value: out })
     } catch (e: any) {
       if (isRedirect(e)) {
         return c.redirect(e.to, (e.status ?? 302) as any)
       }
       if (isNotFound(e)) {
         hasMatch = false
-      } else {
-        throw e
+        break
       }
+      throw e
     }
   }
 
