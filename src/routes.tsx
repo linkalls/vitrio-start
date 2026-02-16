@@ -1,3 +1,4 @@
+import { navigate } from '@potetotown/vitrio'
 import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
 
 // Minimal route definition type
@@ -41,23 +42,47 @@ export const routes: RouteDef[] = [
     path: '/counter',
     loader: counterLoader,
     action: counterAction,
-    component: ({ data, action }) => (
+    component: ({ data }) => (
       <div>
         <h1>Counter</h1>
         <div>loader initial: {String(data.initial)}</div>
         <a href="/">Home</a>
 
-        {/* JS-less Form: POST to same URL */}
-        <form method="post" style={{ marginTop: 20 }}>
+        {/* Progressive enhancement:
+            - no JS: normal POST -> 303 -> GET
+            - with JS: fetch POST, then navigate() to Location
+        */}
+        <form
+          method="post"
+          style={{ marginTop: 20 }}
+          onSubmit={async (e: any) => {
+            if (typeof window === 'undefined') return
+            e.preventDefault()
+
+            const form = e.currentTarget as HTMLFormElement
+            const fd = new FormData(form)
+
+            const res = await fetch(window.location.pathname, {
+              method: 'POST',
+              body: fd,
+              redirect: 'manual',
+            })
+
+            if (res.status >= 300 && res.status < 400) {
+              const to = res.headers.get('Location') || '/'
+              navigate(to)
+              return
+            }
+
+            // Fallback: if redirect is auto-followed, move to final URL
+            if ((res as any).redirected && (res as any).url) {
+              navigate((res as any).url)
+            }
+          }}
+        >
           <input name="amount" type="number" defaultValue="1" />
           <button type="submit">Add (Server Action)</button>
         </form>
-
-        {action.data() && (
-          <div style={{ color: 'green' }}>
-            Action Result: {JSON.stringify(action.data())}
-          </div>
-        )}
       </div>
     ),
   },
