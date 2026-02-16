@@ -13,7 +13,7 @@
     "bench:hono": "bun scripts/bench-hono.ts"
   },
   "dependencies": {
-    "@potetotown/vitrio": "github:linkalls/Vitrio#10eeaf4",
+    "@potetotown/vitrio": "github:linkalls/Vitrio#9793769",
     "hono": "^4.9.6",
     "zod": "^4.1.0"
   },

@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
-import { dehydrateLoaderCache, v } from '@potetotown/vitrio'
+import { dehydrateLoaderCache, v, makeRouteCacheKey } from '@potetotown/vitrio'
 import { matchCompiled } from './match'
 import { getCookie, setCookie } from 'hono/cookie'
 
@@ -149,6 +149,7 @@ export async function handleDocumentRequest(
   let hasMatch = !!matched
 
   // Allow loader to return redirect/notFound (no magic).
+  // Also: prime Vitrio loader cache so Route() does not execute loader twice in SSR.
   if (matched?.loader) {
     const params = matchCompiled(matched._compiled, path) || {}
     const ctx = {
@@ -164,6 +165,10 @@ export async function handleDocumentRequest(
       }
       if (isNotFound(out)) {
         hasMatch = false
+      } else {
+        // Prime cache entry (routeId == path by default)
+        const key = makeRouteCacheKey(matched.path, ctx as any)
+        cacheMap.set(key, { status: 'fulfilled', value: out })
       }
     } catch (e: any) {
       if (isRedirect(e)) {
