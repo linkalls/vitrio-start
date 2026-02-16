@@ -11,7 +11,8 @@
     "test": "bun test",
     "bench:match": "bun scripts/bench-match.ts",
     "bench:hono": "bun scripts/bench-hono.ts",
-    "deploy:wrangler": "bunx wrangler deploy"
+    "deploy:wrangler": "bunx wrangler deploy",
+    "deploy:netlify": "echo 'Bundle src/server/netlify.ts to netlify/functions/server and deploy via Netlify UI/CLI'"
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#9793769",
