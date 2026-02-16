@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { App } from './app'
-import { dehydrateLoaderCache, hydrateLoaderCache } from '@potetotown/vitrio'
+import { dehydrateLoaderCache } from '@potetotown/vitrio'
+import { v } from '@potetotown/vitrio'
 
 // Dev server: serve Vite source files directly (no bundling)
 const app = new Hono()
@@ -12,9 +13,13 @@ app.use('/node_modules/*', serveStatic({ root: '.' }))
 app.use('/@vite/*', serveStatic({ root: '.' }))
 
 app.get('*', async (c) => {
-  hydrateLoaderCache({})
-  const body = await renderToStringAsync(<App path={c.req.path} />)
-  const cache = dehydrateLoaderCache()
+  const locAtom = v({ path: c.req.path, query: '', hash: '' })
+  const cacheMap = new Map<string, any>()
+
+  const body = await renderToStringAsync(
+    <App path={c.req.path} locationAtom={locAtom} loaderCache={cacheMap} />,
+  )
+  const cache = dehydrateLoaderCache(cacheMap as any)
 
   return c.html(`<!doctype html>
 <html>

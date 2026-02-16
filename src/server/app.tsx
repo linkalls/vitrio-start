@@ -1,30 +1,46 @@
-export function App(props: { path: string }) {
-  const path = props.path || '/'
+import { Router, Routes, Route, A, Suspense, type VAtom, v, derive, get } from '@potetotown/vitrio'
 
-  // Minimal SSR router (server-side). Client uses Vitrio Router.
-  if (path === '/') {
-    return (
-      <div>
-        <h1>Home</h1>
-        <a href="/counter">Counter</a>
-      </div>
-    )
-  }
+const RoutesAny = Routes as any
+const RouteAny = Route as any
 
-  if (path === '/counter') {
-    return (
-      <div>
-        <h1>Counter</h1>
-        <p>(SSR preview; interactivity on client)</p>
-        <a href="/">Home</a>
-      </div>
-    )
-  }
+// Demo loader
+function counterLoader() {
+  // pretend async
+  return Promise.resolve({ initial: 123 })
+}
 
+export function App(props: {
+  path: string
+  locationAtom: VAtom<any>
+  loaderCache: Map<string, any>
+}) {
   return (
-    <div>
-      <h1>404</h1>
-      <a href="/">Home</a>
-    </div>
+    <Router locationAtom={props.locationAtom} loaderCache={props.loaderCache}>
+      <Suspense fallback={<div>loading...</div>}>
+        <RoutesAny>
+          <RouteAny path="/" loader={() => ({ now: Date.now() })}>
+            {(data: any) => (
+              <div>
+                <h1>Home</h1>
+                <div>server now: {String(data.now)}</div>
+                <A href="/counter">Counter</A>
+              </div>
+            )}
+          </RouteAny>
+
+          <RouteAny path="/counter" loader={async () => await counterLoader()}>
+            {(data: any) => (
+              <div>
+                <h1>Counter</h1>
+                <div>loader initial: {String(data.initial)}</div>
+                <A href="/">Home</A>
+              </div>
+            )}
+          </RouteAny>
+
+          <RouteAny path="*">{() => <div>404</div>}</RouteAny>
+        </RoutesAny>
+      </Suspense>
+    </Router>
   )
 }
