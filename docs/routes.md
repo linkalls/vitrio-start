@@ -89,11 +89,16 @@ error page (stack trace shown in dev, hidden in prod).
 
 `action(ctx, formData)` runs on `POST` matched by the route matcher.
 
-By default the server uses PRG:
+### Default behavior (PRG)
 
 - run action
 - set flash cookie
 - redirect with `303`
+
+### Explicit redirects
+
+An action can also return `redirect('/to')` (see `src/server/response.ts`).
+In that case the server will redirect immediately (no flash).
 
 **Action return values:**
 

@@ -92,11 +92,16 @@ loader が予期しないエラーを throw したら **500** + エラーペー�
 `action(ctx, formData)` は `POST` で、
 ルートマッチしたものが実行される。
 
-デフォは PRG：
+### デフォ（PRG）
 
 - action実行
 - flash cookie セット
 - `303` リダイレクト
+
+### 明示redirect
+
+action は `redirect('/to')` を return できる（`src/server/response.ts`）。
+その場合は即リダイレクト（flash無し）。
 
 **action の戻り値ガイド：**
 

@@ -80,6 +80,20 @@ export const routes: RouteDef[] = [
     loader: () => notFound(),
     component: () => <div>gone</div>,
   },
+  {
+    path: '/action-redirect',
+    loader: () => ({ ok: true }),
+    action: () => redirect('/'),
+    component: ({ csrfToken }) => (
+      <div>
+        <h1>Action redirect</h1>
+        <form method="post">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <button type="submit">go</button>
+        </form>
+      </div>
+    ),
+  },
 ]
 
 export const compiledRoutes: CompiledRouteDef[] = routes.map((r) => ({
