@@ -1,5 +1,7 @@
-export type RedirectResult = { _tag: 'redirect'; to: string; status?: number }
-export type NotFoundResult = { _tag: 'notfound'; status?: number }
+export type RedirectStatus = 301 | 302 | 303 | 307 | 308
+
+export type RedirectResult = { _tag: 'redirect'; to: string; status?: RedirectStatus }
+export type NotFoundResult = { _tag: 'notfound'; status?: 404 }
 
 /**
  * Action return type guide:
@@ -15,18 +17,22 @@ export type NotFoundResult = { _tag: 'notfound'; status?: number }
  */
 export type ActionResult<T = unknown> = RedirectResult | NotFoundResult | T
 
-export function redirect(to: string, status: number = 303): RedirectResult {
+export function redirect(to: string, status: RedirectStatus = 303): RedirectResult {
   return { _tag: 'redirect', to, status }
 }
 
-export function notFound(status: number = 404): NotFoundResult {
-  return { _tag: 'notfound', status }
+export function notFound(): NotFoundResult {
+  return { _tag: 'notfound', status: 404 }
 }
 
-export function isRedirect(x: any): x is RedirectResult {
-  return !!x && typeof x === 'object' && x._tag === 'redirect'
+function hasTag(x: unknown): x is { _tag: unknown } {
+  return typeof x === 'object' && x !== null && '_tag' in x
 }
 
-export function isNotFound(x: any): x is NotFoundResult {
-  return !!x && typeof x === 'object' && x._tag === 'notfound'
+export function isRedirect(x: unknown): x is RedirectResult {
+  return hasTag(x) && x._tag === 'redirect'
+}
+
+export function isNotFound(x: unknown): x is NotFoundResult {
+  return hasTag(x) && x._tag === 'notfound'
 }

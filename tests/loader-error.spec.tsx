@@ -4,11 +4,11 @@ import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 
 test('Loader that throws returns 500', async () => {
-  const routes: any[] = [
+  const routes = [
     {
       path: '/boom',
       _compiled: compilePath('/boom'),
-      loader: async () => {
+      loader: async (): Promise<never> => {
         throw new Error('database connection failed')
       },
       component: () => <div>never rendered</div>,
@@ -17,7 +17,7 @@ test('Loader that throws returns 500', async () => {
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, routes as any, {
+    handleDocumentRequest(c, routes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

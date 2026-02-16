@@ -1,28 +1,29 @@
-import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
+import type { LoaderCtx, ActionApi } from '@potetotown/vitrio'
 import { z } from 'zod'
 import { parseFormData } from './server/form'
 import { compilePath, type CompiledPath } from './server/match'
-import { redirect, notFound, type RedirectResult, type NotFoundResult } from './server/response'
+import {
+  redirect,
+  notFound,
+  type RedirectResult,
+  type NotFoundResult,
+  type ActionResult,
+} from './server/response'
 
-// Loader result type - can return data or special responses
-export type LoaderResult<T = unknown> = RedirectResult | NotFoundResult | T
+export type LoaderResult = RedirectResult | NotFoundResult | unknown
 
-// Action result type - can return data or special responses
-export type ActionResult<T = unknown> = RedirectResult | NotFoundResult | T
-
-// Minimal route definition type
-export interface RouteDef<
-  TLoaderData = any,
-  TActionData = any
-> {
+// Minimal route definition type (type-safe without `as`):
+// - loaders/actions accept typed ctx/formData
+// - data is `unknown` at the boundary; components validate via Zod
+export interface RouteDef {
   path: string
-  loader?: (ctx: any) => Promise<LoaderResult<TLoaderData>> | LoaderResult<TLoaderData>
-  action?: (ctx: any, formData: FormData) => Promise<ActionResult<TActionData>> | ActionResult<TActionData>
+  loader?: (ctx: LoaderCtx) => Promise<LoaderResult> | LoaderResult
+  action?: (ctx: LoaderCtx, formData: FormData) => Promise<ActionResult> | ActionResult
   component: (props: {
-    data: TLoaderData
-    action: ActionApi<TActionData>
+    data: unknown
+    action: ActionApi<FormData, unknown>
     csrfToken: string
-  }) => any
+  }) => unknown
 }
 
 export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
@@ -37,13 +38,13 @@ export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
  *     component: ({ data }) => <div>{data.user.name}</div>
  *   })
  */
-export function defineRoute<TLoaderData = never, TActionData = never>(
-  route: RouteDef<TLoaderData, TActionData>
-): RouteDef<TLoaderData, TActionData> {
+export function defineRoute(route: RouteDef): RouteDef {
   return route
 }
 
 // Counter Logic
+const counterLoaderData = z.object({ initial: z.number() })
+
 function counterLoader() {
   return Promise.resolve({ initial: 123 })
 }
@@ -52,11 +53,8 @@ const counterActionInput = z.object({
   amount: z.coerce.number().int().min(1).max(100),
 })
 
-async function counterAction(ctx: any, formData: any) {
-  // Server always passes FormData in our framework.
-  // (Keeping it strict keeps things simple.)
-  const fd = formData as FormData
-  const input = parseFormData(fd, counterActionInput)
+async function counterAction(_ctx: LoaderCtx, formData: FormData) {
+  const input = parseFormData(formData, counterActionInput)
 
   console.log('Action run on server!', input.amount)
   // Simulate DB
@@ -64,48 +62,54 @@ async function counterAction(ctx: any, formData: any) {
 }
 
 // Routes
-export const routes: RouteDef[] = [
-  {
+export const routes = [
+  defineRoute({
     path: '/',
     loader: () => ({ now: Date.now() }),
-    component: ({ data }) => (
-      <div>
-        <h1>Home</h1>
-        <div>server now: {String(data.now)}</div>
-        <a href="/counter">Counter</a>
-      </div>
-    ),
-  },
-  {
+    component: ({ data }) => {
+      const homeData = z.object({ now: z.number() }).parse(data)
+      return (
+        <div>
+          <h1>Home</h1>
+          <div>server now: {String(homeData.now)}</div>
+          <a href="/counter">Counter</a>
+        </div>
+      )
+    },
+  }),
+  defineRoute({
     path: '/counter',
     loader: counterLoader,
     action: counterAction,
-    component: ({ data, csrfToken }) => (
-      <div>
-        <h1>Counter</h1>
-        <div>loader initial: {String(data.initial)}</div>
-        <a href="/">Home</a>
+    component: ({ data, csrfToken }) => {
+      const counterData = counterLoaderData.parse(data)
+      return (
+        <div>
+          <h1>Counter</h1>
+          <div>loader initial: {String(counterData.initial)}</div>
+          <a href="/">Home</a>
 
-        {/* super simple: pure HTML form + PRG */}
-        <form method="post" style={{ marginTop: 20 }}>
-          <input type="hidden" name="_csrf" value={csrfToken} />
-          <input name="amount" type="number" defaultValue="1" />
-          <button type="submit">Add (Server Action)</button>
-        </form>
-      </div>
-    ),
-  },
-  {
+          {/* super simple: pure HTML form + PRG */}
+          <form method="post" style={{ marginTop: 20 }}>
+            <input type="hidden" name="_csrf" value={csrfToken} />
+            <input name="amount" type="number" defaultValue="1" />
+            <button type="submit">Add (Server Action)</button>
+          </form>
+        </div>
+      )
+    },
+  }),
+  defineRoute({
     path: '/redir',
     loader: () => redirect('/counter'),
     component: () => <div>redirecting...</div>,
-  },
-  {
+  }),
+  defineRoute({
     path: '/gone',
     loader: () => notFound(),
     component: () => <div>gone</div>,
-  },
-  {
+  }),
+  defineRoute({
     path: '/action-redirect',
     loader: () => ({ ok: true }),
     action: () => redirect('/'),
@@ -118,7 +122,7 @@ export const routes: RouteDef[] = [
         </form>
       </div>
     ),
-  },
+  }),
 ]
 
 export const compiledRoutes: CompiledRouteDef[] = routes.map((r) => ({

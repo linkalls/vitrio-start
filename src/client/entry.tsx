@@ -1,15 +1,26 @@
 import { render, Router, Routes, Route, Suspense, hydrateLoaderCache } from '@potetotown/vitrio'
-import { routes, type RouteDef } from '../routes'
+import { routes } from '../routes'
 
-const RoutesAny = Routes as any
-const RouteAny = Route as any
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null
+}
+
+function isFlash(x: unknown): x is { ok: boolean; at: number } {
+  if (typeof x !== 'object' || x === null) return false
+  const ok = Reflect.get(x, 'ok')
+  const at = Reflect.get(x, 'at')
+  return typeof ok === 'boolean' && typeof at === 'number'
+}
 
 // Hydrate loader cache from server
-hydrateLoaderCache((globalThis as any).__VITRIO_LOADER_CACHE__)
+if (isRecord(globalThis.__VITRIO_LOADER_CACHE__)) {
+  hydrateLoaderCache(globalThis.__VITRIO_LOADER_CACHE__)
+}
 
 function FlashBanner() {
-  const flash = (globalThis as any).__VITRIO_FLASH__ as null | { ok: boolean; at: number }
-  if (!flash) return null
+  const raw = globalThis.__VITRIO_FLASH__
+  if (!isFlash(raw)) return null
+  const flash = raw
   return (
     <div
       style={
@@ -29,22 +40,26 @@ function App() {
     <Router>
       <FlashBanner />
       <Suspense fallback={<div>loading...</div>}>
-        <RoutesAny
-          children={[
-            ...routes.map((r: RouteDef) => (
-              <RouteAny
-                key={r.path}
-                path={r.path}
-                loader={r.loader}
-                action={r.action}
-              >
-                {(data: any, ctx: any) =>
-                  r.component({ data, action: ctx.action, csrfToken: '' })}
-              </RouteAny>
-            )),
-            <RouteAny path="*">{() => <div>404</div>}</RouteAny>,
-          ]}
-        />
+        {
+          Routes({
+            children: [
+              ...routes.map((r) =>
+                Route({
+                  path: r.path,
+                  loader: r.loader,
+                  action: r.action,
+                  children: (
+                    data: unknown,
+                    ctx: import('@potetotown/vitrio').LoaderCtx & {
+                      action: import('@potetotown/vitrio').ActionApi<FormData, unknown>
+                    },
+                  ) => r.component({ data, action: ctx.action, csrfToken: '' }),
+                }),
+              ),
+              Route({ path: '*', children: () => <div>404</div> }),
+            ],
+          })
+        }
       </Suspense>
     </Router>
   )

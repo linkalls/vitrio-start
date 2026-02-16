@@ -1,20 +1,23 @@
 import { test, expect } from 'bun:test'
 import { Hono } from 'hono'
-import { compilePath, matchCompiled } from '../src/server/match'
+import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
+import type { CompiledRouteDef } from '../src/routes'
 
 // Local routes to count loader calls
 const counter = { n: 0 }
 
-const localRoutes: any[] = [
+type Data = { ok: boolean }
+
+const localRoutes: CompiledRouteDef[] = [
   {
     path: '/x',
     _compiled: compilePath('/x'),
-    loader: async () => {
+    loader: async (): Promise<Data> => {
       counter.n++
       return { ok: true }
     },
-    component: ({ data }: any) => <div>{String(data.ok)}</div>,
+    component: ({ data }) => <div>{String(data.ok)}</div>,
   },
 ]
 
@@ -23,7 +26,7 @@ test('SSR primes loader cache (loader runs once)', async () => {
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, localRoutes as any, {
+    handleDocumentRequest(c, localRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

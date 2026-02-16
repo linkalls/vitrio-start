@@ -17,4 +17,4 @@ export const config = {
 
   /** true in production (NODE_ENV=production) */
   isProd: process.env.NODE_ENV === 'production',
-} as const
+}

@@ -9,7 +9,7 @@ export function parseFormData<T extends z.ZodTypeAny>(
   schema: T,
 ): z.infer<T> {
   // Only string fields for now (files are ignored)
-  const obj: Record<string, any> = {}
+  const obj: Record<string, unknown> = {}
   for (const [k, v] of formData.entries()) {
     if (typeof v === 'string') obj[k] = v
   }

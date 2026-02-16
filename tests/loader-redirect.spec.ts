@@ -6,7 +6,7 @@ import { handleDocumentRequest } from '../src/server/framework'
 test('GET loader can redirect', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -21,7 +21,7 @@ test('GET loader can redirect', async () => {
 test('GET loader can mark notfound (404 status)', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

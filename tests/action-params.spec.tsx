@@ -2,24 +2,28 @@ import { test, expect } from 'bun:test'
 import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
+import type { CompiledRouteDef } from '../src/routes'
+import type { LoaderCtx } from '@potetotown/vitrio'
 
-const seen: any[] = []
+const seen: Array<Record<string, string>> = []
 
-const routes: any[] = [
+type Ok = { ok: true }
+
+const routes: CompiledRouteDef[] = [
   {
     path: '/p/:id/*',
     _compiled: compilePath('/p/:id/*'),
-    loader: async () => ({ ok: true }),
-    component: ({ data }: any) => <div>{String(data.ok)}</div>,
+    loader: async (): Promise<Ok> => ({ ok: true }),
+    component: ({ data }) => <div>{String(data.ok)}</div>,
   },
   {
     path: '/p/:id/x',
     _compiled: compilePath('/p/:id/x'),
-    action: async (ctx: any) => {
+    action: async (ctx: LoaderCtx): Promise<Record<string, never>> => {
       seen.push(ctx.params)
       return {}
     },
-    component: ({ csrfToken }: any) => (
+    component: ({ csrfToken }) => (
       <form method="post">
         <input type="hidden" name="_csrf" value={csrfToken} />
         <button type="submit">go</button>
@@ -33,7 +37,7 @@ test('POST action receives merged params (parent + leaf)', async () => {
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, routes as any, {
+    handleDocumentRequest(c, routes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

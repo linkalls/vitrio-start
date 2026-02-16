@@ -6,7 +6,7 @@ import { handleDocumentRequest } from '../src/server/framework'
 test('GET unknown path returns 404 status (document)', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -21,7 +21,7 @@ test('GET unknown path returns 404 status (document)', async () => {
 test('GET known path returns 200 status', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

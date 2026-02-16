@@ -12,7 +12,7 @@ app.use('/node_modules/*', serveStatic({ root: '.' }))
 app.use('/@vite/*', serveStatic({ root: '.' }))
 
 app.all('*', (c) =>
-  handleDocumentRequest(c, compiledRoutes as any, {
+  handleDocumentRequest(c, compiledRoutes, {
     title: 'vitrio-start (dev)',
     entrySrc: '/src/client/entry.tsx',
   }),

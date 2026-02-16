@@ -25,7 +25,7 @@ function findCookie(setCookies: string[], name: string): string | null {
 test('GET sets csrf cookie and returns HTML', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -46,7 +46,7 @@ test('GET sets csrf cookie and returns HTML', async () => {
 test('POST without csrf does not run action and still redirects (flash=false)', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -72,7 +72,7 @@ test('POST without csrf does not run action and still redirects (flash=false)', 
 test('POST with csrf redirects and sets flash=true', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

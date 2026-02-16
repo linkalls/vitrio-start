@@ -12,7 +12,7 @@ function pickCookie(setCookie: string | null, name: string) {
 test('POST action can redirect explicitly', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

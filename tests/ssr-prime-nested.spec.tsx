@@ -2,27 +2,32 @@ import { test, expect } from 'bun:test'
 import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
+import type { CompiledRouteDef } from '../src/routes'
+import type { LoaderCtx } from '@potetotown/vitrio'
 
 const calls = { parent: 0, leaf: 0 }
 
-const localRoutes: any[] = [
+type ParentData = { parent: true; id: string }
+type LeafData = { leaf: true; id: string }
+
+const localRoutes: CompiledRouteDef[] = [
   {
     path: '/p/:id/*',
     _compiled: compilePath('/p/:id/*'),
-    loader: async (ctx: any) => {
+    loader: async (ctx: LoaderCtx): Promise<ParentData> => {
       calls.parent++
       return { parent: true, id: ctx.params.id }
     },
-    component: ({ data }: any) => <div>parent {String(data.parent)}</div>,
+    component: ({ data }) => <div>parent {String(data.parent)}</div>,
   },
   {
     path: '/p/:id/x',
     _compiled: compilePath('/p/:id/x'),
-    loader: async (ctx: any) => {
+    loader: async (ctx: LoaderCtx): Promise<LeafData> => {
       calls.leaf++
       return { leaf: true, id: ctx.params.id }
     },
-    component: ({ data }: any) => <div>leaf {String(data.leaf)}</div>,
+    component: ({ data }) => <div>leaf {String(data.leaf)}</div>,
   },
 ]
 
@@ -32,7 +37,7 @@ test('SSR primes all matching loaders (prefix + leaf) without double execution',
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, localRoutes as any, {
+    handleDocumentRequest(c, localRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

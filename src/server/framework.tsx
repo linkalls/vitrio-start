@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
-import { dehydrateLoaderCache, v, makeRouteCacheKey } from '@potetotown/vitrio'
+import { dehydrateLoaderCache, v, makeRouteCacheKey, type LoaderCtx } from '@potetotown/vitrio'
 import { matchCompiled } from './match'
 import { getCookie, setCookie } from 'hono/cookie'
 import { config } from './config'
@@ -8,7 +8,11 @@ import { config } from './config'
 function newToken(): string {
   // Bun has crypto.randomUUID()
   // Fallback keeps it simple.
-  return (globalThis.crypto as any)?.randomUUID?.() ?? String(Math.random()).slice(2)
+  const c = globalThis.crypto
+  if (c && 'randomUUID' in c && typeof c.randomUUID === 'function') {
+    return c.randomUUID()
+  }
+  return String(Math.random()).slice(2)
 }
 
 function ensureCsrfCookie(c: Context): string {
@@ -50,7 +54,12 @@ function setFlash(c: Context, ok: boolean) {
   })
 }
 
-import { isRedirect, isNotFound } from './response'
+import { isRedirect, isNotFound, type RedirectStatus } from './response'
+
+type CacheEntry =
+  | { status: 'pending'; promise: Promise<unknown> }
+  | { status: 'fulfilled'; value: unknown }
+  | { status: 'rejected'; error: unknown }
 
 // --- Security headers (minimal, applied to every document response) ---
 
@@ -81,7 +90,7 @@ async function runMatchedAction(
   | { kind: 'no-match' }
   | { kind: 'csrf-fail' }
   | { kind: 'ok' }
-  | { kind: 'redirect'; to: string; status: number }
+  | { kind: 'redirect'; to: string; status: RedirectStatus }
   | { kind: 'notfound'; status: number }
 > {
   // Find all matching routes with actions; prefer leaf-most action.
@@ -102,13 +111,13 @@ async function runMatchedAction(
       return { kind: 'csrf-fail' }
     }
 
-    const ctx = {
+    const ctx: LoaderCtx = {
       params: mergedParams,
       search: url.searchParams,
       location: { path, query: url.search, hash: url.hash },
     }
 
-    const out = await r.action(ctx as any, formData as any)
+    const out = await r.action(ctx, formData)
 
     if (isRedirect(out)) {
       return { kind: 'redirect', to: out.to, status: out.status ?? 303 }
@@ -154,7 +163,7 @@ export async function handleDocumentRequest(
 
       if (r.kind === 'redirect') {
         // explicit redirect from action (no flash)
-        return c.redirect(r.to, r.status as any)
+        return c.redirect(r.to, r.status)
       }
 
       if (r.kind === 'notfound') {
@@ -180,7 +189,7 @@ export async function handleDocumentRequest(
 
   // GET -> SSR
   const locAtom = v({ path, query: url.search, hash: url.hash })
-  const cacheMap = new Map<string, any>()
+  const cacheMap = new Map<string, CacheEntry>()
 
   // Find all matching routes (excluding catch-all). This enables simple "layout"
   // style prefix routes like `/parent/*` + a leaf `/parent/child`.
@@ -203,17 +212,17 @@ export async function handleDocumentRequest(
     const params = matchCompiled(r._compiled, path) || {}
     mergedParams = { ...mergedParams, ...params }
 
-    const ctx = {
+    const ctx: LoaderCtx = {
       params: mergedParams,
       search: url.searchParams,
       location: { path, query: url.search, hash: url.hash },
     }
 
     try {
-      const out = await r.loader(ctx as any)
+      const out = await r.loader(ctx)
       if (isRedirect(out)) {
         logRequest(method, path, 'loader-redirect', Date.now() - t0)
-        return c.redirect(out.to, (out.status ?? 302) as any)
+        return c.redirect(out.to, out.status ?? 302)
       }
       if (isNotFound(out)) {
         hasMatch = false
@@ -221,12 +230,12 @@ export async function handleDocumentRequest(
       }
 
       // Prime cache entry (routeId == path by default)
-      const key = makeRouteCacheKey(r.path, ctx as any)
+      const key = makeRouteCacheKey(r.path, ctx)
       cacheMap.set(key, { status: 'fulfilled', value: out })
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (isRedirect(e)) {
         logRequest(method, path, 'loader-redirect', Date.now() - t0)
-        return c.redirect(e.to, (e.status ?? 302) as any)
+        return c.redirect(e.to, e.status ?? 302)
       }
       if (isNotFound(e)) {
         hasMatch = false
@@ -295,7 +304,7 @@ export async function handleDocumentRequest(
     <App path={path} locationAtom={locAtom} loaderCache={cacheMap} csrfToken={csrfToken} />,
   )
 
-  const cache = dehydrateLoaderCache(cacheMap as any)
+  const cache = dehydrateLoaderCache(cacheMap)
   const flash = readAndClearFlash(c)
 
   logRequest(method, path, hasMatch ? '200' : '404', Date.now() - t0)

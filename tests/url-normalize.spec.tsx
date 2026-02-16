@@ -4,18 +4,18 @@ import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 
 test('GET trailing slash redirects to normalized URL (301)', async () => {
-  const routes: any[] = [
+  const routes = [
     {
       path: '/hello',
       _compiled: compilePath('/hello'),
-      loader: async () => ({ ok: true }),
-      component: ({ data }: any) => <div>{String(data.ok)}</div>,
+      loader: async (): Promise<{ ok: true }> => ({ ok: true }),
+      component: ({ data }: { data: { ok: true } }) => <div>{String(data.ok)}</div>,
     },
   ]
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, routes as any, {
+    handleDocumentRequest(c, routes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -27,18 +27,18 @@ test('GET trailing slash redirects to normalized URL (301)', async () => {
 })
 
 test('GET root "/" is not redirected', async () => {
-  const routes: any[] = [
+  const routes = [
     {
       path: '/',
       _compiled: compilePath('/'),
-      loader: async () => ({ ok: true }),
-      component: ({ data }: any) => <div>{String(data.ok)}</div>,
+      loader: async (): Promise<{ ok: true }> => ({ ok: true }),
+      component: ({ data }: { data: { ok: true } }) => <div>{String(data.ok)}</div>,
     },
   ]
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, routes as any, {
+    handleDocumentRequest(c, routes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
@@ -49,18 +49,18 @@ test('GET root "/" is not redirected', async () => {
 })
 
 test('GET trailing slash preserves query string', async () => {
-  const routes: any[] = [
+  const routes = [
     {
       path: '/search',
       _compiled: compilePath('/search'),
-      loader: async () => ({ ok: true }),
-      component: ({ data }: any) => <div>{String(data.ok)}</div>,
+      loader: async (): Promise<{ ok: true }> => ({ ok: true }),
+      component: ({ data }: { data: { ok: true } }) => <div>{String(data.ok)}</div>,
     },
   ]
 
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, routes as any, {
+    handleDocumentRequest(c, routes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),

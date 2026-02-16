@@ -19,7 +19,7 @@ app.use('/assets/*', async (c, next) => {
 app.use('/assets/*', serveStatic({ root: './dist/client' }))
 
 app.all('*', (c) =>
-  handleDocumentRequest(c, compiledRoutes as any, {
+  handleDocumentRequest(c, compiledRoutes, {
     title: 'vitrio-start',
     entrySrc: '/src/client/entry.tsx',
   }),

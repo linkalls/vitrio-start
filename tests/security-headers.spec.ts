@@ -6,7 +6,7 @@ import { handleDocumentRequest } from '../src/server/framework'
 test('Document response includes security headers', async () => {
   const app = new Hono()
   app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes as any, {
+    handleDocumentRequest(c, compiledRoutes, {
       title: 'test',
       entrySrc: '/src/client/entry.tsx',
     }),
