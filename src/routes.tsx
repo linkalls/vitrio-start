@@ -1,4 +1,3 @@
-import { navigate } from '@potetotown/vitrio'
 import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
 
 // Minimal route definition type
@@ -48,40 +47,8 @@ export const routes: RouteDef[] = [
         <div>loader initial: {String(data.initial)}</div>
         <a href="/">Home</a>
 
-        {/* Progressive enhancement:
-            - no JS: normal POST -> 303 -> GET
-            - with JS: fetch POST, then navigate() to Location
-        */}
-        <form
-          method="post"
-          style={{ marginTop: 20 }}
-          onSubmit={async (e: any) => {
-            if (typeof window === 'undefined') return
-            e.preventDefault()
-
-            const form = e.currentTarget as HTMLFormElement
-            const fd = new FormData(form)
-
-            const res = await fetch(window.location.pathname, {
-              method: 'POST',
-              body: fd,
-              redirect: 'manual',
-            })
-
-            if (res.status >= 300 && res.status < 400) {
-              const to = res.headers.get('Location') || '/'
-              // Flash is httpOnly cookie -> we need a real GET request so server can
-              // embed __VITRIO_FLASH__ and clear it. So do a hard navigation.
-              window.location.assign(to)
-              return
-            }
-
-            // Fallback: if redirect is auto-followed, move to final URL
-            if ((res as any).redirected && (res as any).url) {
-              window.location.assign((res as any).url)
-            }
-          }}
-        >
+        {/* super simple: pure HTML form + PRG */}
+        <form method="post" style={{ marginTop: 20 }}>
           <input name="amount" type="number" defaultValue="1" />
           <button type="submit">Add (Server Action)</button>
         </form>
