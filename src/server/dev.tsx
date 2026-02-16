@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { App } from './app'
-import { dehydrateLoaderCache } from '@potetotown/vitrio'
-import { v } from '@potetotown/vitrio'
+import { dehydrateLoaderCache, v, matchPath } from '@potetotown/vitrio'
+import { routes } from '../routes'
 
 // Dev server: serve Vite source files directly (no bundling)
 const app = new Hono()
@@ -12,8 +12,38 @@ app.use('/src/*', serveStatic({ root: '.' }))
 app.use('/node_modules/*', serveStatic({ root: '.' }))
 app.use('/@vite/*', serveStatic({ root: '.' }))
 
-app.get('*', async (c) => {
-  const locAtom = v({ path: c.req.path, query: '', hash: '' })
+app.all('*', async (c) => {
+  const method = c.req.method
+  const url = new URL(c.req.url)
+  const path = url.pathname
+
+  // 1. Handle POST Actions
+  if (method === 'POST') {
+    for (const r of routes) {
+      const params = matchPath(r.path, path)
+      if (params && r.action) {
+        // Found matching action
+        const formData = await c.req.formData()
+        const ctx = { params, search: url.searchParams, location: { path, query: url.search, hash: url.hash } }
+        
+        try {
+          // Execute action
+          // Note: In a real app, you'd handle redirects or return data to the renderer.
+          // For now, we just run it and let the renderer re-run loaders.
+          await r.action(ctx, formData)
+          console.log('Action executed successfully')
+        } catch (e) {
+          console.error('Action failed', e)
+        }
+        // Fallthrough to render (PRG pattern usually redirects, but here we re-render)
+        // If we wanted to pass action result to render, we'd need a way to seed it.
+        break
+      }
+    }
+  }
+
+  // 2. Render
+  const locAtom = v({ path, query: url.search, hash: url.hash })
   const cacheMap = new Map<string, any>()
 
   const body = await renderToStringAsync(

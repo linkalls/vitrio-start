@@ -2,15 +2,38 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { App } from './app'
-import { dehydrateLoaderCache } from '@potetotown/vitrio'
-import { v } from '@potetotown/vitrio'
+import { dehydrateLoaderCache, v, matchPath } from '@potetotown/vitrio'
+import { routes } from '../routes'
 
 const app = new Hono()
 
 // Static client assets (after `bun run build`)
 app.use('/assets/*', serveStatic({ root: './dist/client' }))
 
-app.get('*', async (c) => {
+app.all('*', async (c) => {
+  const method = c.req.method
+  const url = new URL(c.req.url)
+  const path = url.pathname
+
+  // 1. Handle POST Actions
+  if (method === 'POST') {
+    for (const r of routes) {
+      const params = matchPath(r.path, path)
+      if (params && r.action) {
+        // Found matching action
+        const formData = await c.req.formData()
+        const ctx = { params, search: url.searchParams, location: { path, query: url.search, hash: url.hash } }
+        
+        try {
+          await r.action(ctx, formData)
+        } catch (e) {
+          console.error('Action failed', e)
+        }
+        break
+      }
+    }
+  }
+
   const locAtom = v({ path: c.req.path, query: '', hash: '' })
   const cacheMap = new Map<string, any>()
 
