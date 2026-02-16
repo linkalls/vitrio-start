@@ -29,7 +29,7 @@ The SSR HTML embeds the dehydrated cache into `globalThis.__VITRIO_LOADER_CACHE_
 
 ## Action (POST)
 
-`action(ctx, formData)` runs on `POST` matched by `matchPath(route.path, url.pathname)`.
+`action(ctx, formData)` runs on `POST` matched by the route matcher.
 
 By default the server uses PRG:
 

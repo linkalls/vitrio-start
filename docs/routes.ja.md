@@ -32,7 +32,7 @@ SSR HTMLは `globalThis.__VITRIO_LOADER_CACHE__` に dehydrate した内容を�
 ## Action（POST）
 
 `action(ctx, formData)` は `POST` で、
-`matchPath(route.path, url.pathname)` に一致したものが実行される。
+ルートマッチしたものが実行される。
 
 デフォは PRG：
 

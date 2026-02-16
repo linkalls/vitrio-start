@@ -20,7 +20,7 @@ Routes are defined as a simple data structure in `src/routes.tsx`:
 
 Server routing is just:
 
-1. `matchPath(route.path, url.pathname)`
+1. Match route by pathname
 2. If `POST` and route has `action`, execute it
 3. Redirect with `303` (PRG)
 4. Render the HTML document with `renderToStringAsync`

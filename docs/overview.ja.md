@@ -21,7 +21,7 @@
 
 サーバ側はひたすらこれだけ：
 
-1. `matchPath(route.path, url.pathname)` で一致判定
+1. pathnameでルート一致判定
 2. `POST` で route に `action` があれば実行
 3. **303** でリダイレクト（PRG）
 4. `renderToStringAsync` でHTMLをSSR

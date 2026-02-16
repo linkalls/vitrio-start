@@ -49,19 +49,27 @@ function setFlash(c: Context, ok: boolean) {
   })
 }
 
+import { isRedirect, isNotFound } from './response'
+
 async function runMatchedAction(
   c: Context,
   routes: CompiledRouteDef[],
   path: string,
   url: URL,
-) {
+): Promise<
+  | { kind: 'no-match' }
+  | { kind: 'csrf-fail' }
+  | { kind: 'ok' }
+  | { kind: 'redirect'; to: string; status: number }
+  | { kind: 'notfound'; status: number }
+> {
   for (const r of routes) {
     const params = matchCompiled(r._compiled, path)
     if (!params || !r.action) continue
 
     const formData = await c.req.formData()
     if (!verifyCsrf(c, formData)) {
-      return false
+      return { kind: 'csrf-fail' }
     }
 
     const ctx = {
@@ -70,11 +78,19 @@ async function runMatchedAction(
       location: { path, query: url.search, hash: url.hash },
     }
 
-    await r.action(ctx as any, formData as any)
-    return true
+    const out = await r.action(ctx as any, formData as any)
+
+    if (isRedirect(out)) {
+      return { kind: 'redirect', to: out.to, status: out.status ?? 303 }
+    }
+    if (isNotFound(out)) {
+      return { kind: 'notfound', status: out.status ?? 404 }
+    }
+
+    return { kind: 'ok' }
   }
 
-  return false
+  return { kind: 'no-match' }
 }
 
 export async function handleDocumentRequest(
@@ -89,16 +105,34 @@ export async function handleDocumentRequest(
   // ensure CSRF cookie (GET/POST)
   const csrfToken = ensureCsrfCookie(c)
 
-  // POST -> Action -> 303 Redirect (PRG)
+  // POST -> Action -> Redirect (PRG)
   if (method === 'POST') {
     try {
-      const ok = await runMatchedAction(c, routes, path, url)
-      setFlash(c, ok)
+      const r = await runMatchedAction(c, routes, path, url)
+
+      if (r.kind === 'redirect') {
+        // explicit redirect from action (no flash)
+        return c.redirect(r.to, r.status as any)
+      }
+
+      if (r.kind === 'notfound') {
+        setFlash(c, false)
+        return c.redirect(path, 303)
+      }
+
+      if (r.kind === 'csrf-fail' || r.kind === 'no-match') {
+        setFlash(c, false)
+        return c.redirect(path, 303)
+      }
+
+      // ok
+      setFlash(c, true)
+      return c.redirect(path, 303)
     } catch (e) {
       console.error('Action failed', e)
       setFlash(c, false)
+      return c.redirect(path, 303)
     }
-    return c.redirect(path, 303)
   }
 
   // GET -> SSR
