@@ -1,156 +1,144 @@
-# vitrio-start / Vitrio Start-alternative — Copilot TODO Dump
+# Copilot Agent Brief — vitrio-start (Next.js-like, but no magic)
 
-目的：**Next.js代替として個人開発で“すぐ使える”**状態にする。
-方針：**魔術なし / RPCなし / server functionなし**、HTTP + PRG を中心に、シンプルでAIが理解しやすい構造を維持。
+このファイルは **GitHub Copilot Agent / Copilot CLI** にそのまま渡す用の「完全仕様メモ」なん。
 
----
+狙い：**Next.js代替として個人開発で“普通に使える”**。
+ただし：**TanStack Startみたいな魔術／Nextのserver function(server actions) 的なRPC**はやらない。
 
-## コア方針（絶対）
-
-- server function / server action（クライアントから関数直叩き）を作らない
-- ルーティングは「データ構造 + マッチャ」で完結（framework依存を薄く）
-- action は **POST** で route に紐づいて実行（PRGが基本）
-- SSR は `renderToStringAsync`（Promise throw を許す）
-- SSR→CSR は loader cache を dehydrate/hydrate して二重実行を避ける
-- 小さいファイル / 直線的な制御フロー / 例外少なめ（AIフレンドリー）
+- HTTPの基本でやる（GET document / POST action）
+- デフォは PRG（POST → 303 → GET）
+- ルーティングは data + matcher で明示
+- 小さいファイル、見通し良く、AIが追える
 
 ---
 
-## 今ある実装（前提）
+## Non-goals（絶対やらない）
+
+- クライアントから「関数ID」や「シリアライズ関数」を送ってサーバで実行する仕組み
+- 自動生成される謎エンドポイント（`/__data` とか）
+- ルート定義をコンパイルする大規模魔術
+
+---
+
+## 現状（リポジトリ前提）
+
+### ファイル
 
 - `src/routes.tsx`
-  - `routes` + `compiledRoutes`
-  - route: `path/loader/action/component`
+  - `routes` / `compiledRoutes`
+  - route: `{ path, loader?, action?, component }`
 - `src/server/framework.tsx`
-  - `handleDocumentRequest()`
-  - GET: SSR + 404 status + loader prime（prefix+leaf対応、paramsマージ）
-  - POST: CSRF検証 + prefix+leaf paramsマージ + action 実行 + PRG 303
-  - flash cookie (httpOnly, 1-shot)
+  - `handleDocumentRequest(c, compiledRoutes, { title, entrySrc })`
+  - GET: URL正規化、security headers、SSR、404 status、loader prime（prefix+leaf+params merge）
+  - POST: CSRF、params merge、action、PRG、flash
 - `src/server/response.ts`
   - `redirect()` / `notFound()`
-  - action/loader がこれを返すと server が反映
+- `src/server/match.ts`
+  - `compilePath()` / `matchCompiled()`
 - `src/server/form.ts`
-  - `parseFormData()` + Zod で入力検証
-- テスト
-  - PRG/CSRF
-  - HTTP status
-  - loader redirect/notFound
-  - SSR prime (single + prefix/leaf)
-  - POST action params merge
+  - `parseFormData()`（Zod parse）
+
+### 既にある機能（重要）
+
+- PRG
+- flash cookie（httpOnly / 1-shot）
+- CSRF（cookie token + hidden input）
+- SSR loader prime（SSRでloader二重実行を防ぐ）
+- loader/action の redirect/notFound（戻り値）
+- 404/500 status
+- minimal tests + perf benches
 
 ---
 
-## TODO: 使えるNext代替にするためにやりたいこと
+## Roadmap（Copilotにやってほしいこと）
 
-### ルーティング / データローディング
+### A. CLI（Next.jsっぽく `bunx` で作れるように）
 
-- [ ] **nested routes の “layout loader” を正式化**
-  - prefix (`/p/:id/*`) loader → leaf loader の順で実行
-  - leaf側で parent loader の結果を参照したい（例：親が user を取って子が post を取る）
-  - ただし魔術的な依存注入は避ける（明示的に渡す）
+**目標**：
 
-- [ ] **複数loaderの結果をまとめて dehydrate**
-  - すでに cacheMap に複数keyが入るのでOKだが、key/routeIdの設計を整理
+- `bunx create-vitrio-start my-app`
+  - テンプレ生成
+  - `package.json` / scripts / tsconfig / vite config
+  - 初期 `src/routes.tsx`（例ルート）
+  - 初期 `src/server/framework.tsx` 等
+  - `bun install` を実行するかはオプション
 
-- [x] **loader エラーの扱いを決める**
-  - loaderがthrowしたら 500 + エラーページ（devではstack trace表示、prodでは非表示）
-  - `notFound()` をreturnしたら 404
+**実装案**（推奨）：
 
-- [x] **URL正規化（trailing slash 等）**
-  - `/a/` → `/a` に 301 redirect（`/` は除く）
-  - `handleDocumentRequest` の先頭で実施
+- 新しい別repo（例：`linkalls/create-vitrio-start`）か、monorepo化
+- `bin` 付きの Node/Bun スクリプトでテンプレをコピー
+- テンプレは `templates/default/*` に置く
+- 依存は最小：`fs`, `path`、必要なら `picocolors` 程度
 
+**CLIの要件**：
 
-### Actions / Forms
-
-- [x] **action の戻り値の型ガイド**
-  - `redirect()` — 明示 redirect（flash なし）
-  - `notFound()` — flash(ok=false) + 303
-  - `{ …any }` — flash(ok=true) + 303（通常の "ok"）
-  - `ActionResult` 型を `src/server/response.ts` に追加
-
-- [ ] **Form helper（クライアントの <Form> を使うかどうか）**
-  - 今は HTML form が基本
-  - 追加で `<Form>` (Vitrio) の progressive enhancement を “オプション” として整理
-  - ただし httpOnly flash を使うなら hard navigation が必要
+- `--no-install` オプション
+- `--name`（任意）
+- bun前提（npm/yarnは考えない）
+- 生成物は “魔術なし” を維持
 
 
-### セキュリティ（最小で堅い）
+### B. DX（使い始めの気持ち良さ）
 
-- [x] **CSRF をちゃんと運用可能に**
-  - token rotation は現状固定（必要に応じて拡張可能）
-  - double-submit cookie方式の注意点を `docs/security.md` に追記済み
-  - SameSite=Lax の前提・例外を文書化済み
+- `README.md` に「30秒で動かす」セクション追加
+  - `bunx create-vitrio-start`
+  - `cd` → `bun install` → `bun dev`
 
-- [x] **セキュリティヘッダ（最低限）**
-  - `X-Content-Type-Options: nosniff`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-  - `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`
-  - `setSecurityHeaders()` として `src/server/framework.tsx` に実装
+- `docs/` に「route追加のコピペテンプレ」増やす
+  - loader/action/validation/redirect/notFound
 
 
-### DX / 開発体験
+### C. アセット配信（本番で困らない最低限）
 
-- [x] **ルート追加テンプレを generator でなく docs で徹底**
-  - `docs/routes.md` にコピペ用スニペット（loader only / loader+action / nested）を追加
+- `src/server/index.tsx` の static assets 配信に cache headers を追加
+  - `assets/*` に `Cache-Control: public, max-age=31536000, immutable`
+  - HTMLはキャッシュしない
 
-- [x] **ログの粒度**
-  - dev: action/loader 実行ログ（`[vitrio] METHOD path → result (ms)`）
-  - prod: `config.isProd` で抑制
-
-- [x] **環境変数/設定の置き場所**
-  - `src/server/config.ts` に集約
-  - `PORT`/`ORIGIN`/`BASE_PATH`/`NODE_ENV` を管理
+- 本番/開発で挙動がズレないようにする
 
 
-### テスト / CI
+### D. エラーページ（見た目）
 
-- [x] **CI workflow (GitHub Actions) を追加**
-  - `.github/workflows/ci.yml`
-  - `bun install` → `bun run typecheck` → `bun test`
+- 500/404 の HTML をもうちょい見やすく
+  - ただし依存は増やさない
+  - 500はprodだと詳細隠す（現状あり）
 
-- [ ] **E2E を最小で1本**（本当に必要なら）
-  - ブラウザで form submit → 303 → flash 表示
-  - ただしE2Eは重いので、基本は unit/integration のままでも良い
+（※UIをVitrio側で作りたい場合は別途検討。まずはserver側HTMLでOK）
 
 
-### 本番向け（必要になったら）
+### E. ルート/loader/action の契約を固める
 
-- [ ] **静的アセット配信の整理**
-  - `dist/client` の配信
-  - cache headers
+- `RouteDef` の型を整理
+  - `loader` / `action` 戻り値の union（`redirect/notFound`）を型レベルで表現
 
-- [ ] **streaming SSR**（必要になってから）
-  - いまは `renderToStringAsync` で十分
+- `routeId` と `cache key` の契約を docs 化
+  - SSR prime と CSR cache が一致する前提
 
 
-### Vitrio 本体側（必要なら）
+### F. テスト/CI
 
-- [ ] **SSR priming の公式サポート**
-  - いまは `makeRouteCacheKey` を export して手動 prime
-  - 将来的に `primeLoaderCache(key, value)` 的なAPIがあると分かりやすい
+- GitHub Actions で
+  - typecheck
+  - bun test
+  - （任意）benchの定期実行はしない
 
-- [ ] **Route id と cache key のルール整理**
-  - `routeId` = `id ?? path` を前提にしている
-  - server/framework と一致する契約の docs 化
-
+- 既存テストを壊さない
 
 ---
 
-## “魔術なし”であることのチェックリスト
+## “魔術なし”チェックリスト（レビュー用）
 
-- [ ] クライアントからサーバ関数IDを投げて任意実行してない
-- [ ] 実行される action は URL で決まる（matchで決まる）
-- [ ] POST後は PRG（303）で状態を確定させる
-- [ ] SSRは副作用を最小に（loader/action以外で勝手にDB触らない）
+- [ ] クライアントからサーバ関数を直接呼んでない（RPC化してない）
+- [ ] actionはURLマッチで決まる
+- [ ] POST後はPRGがデフォ
+- [ ] 入力はZod等でパースする
+- [ ] CSRFがある
+- [ ] SSRでloaderが二重実行されない（primeされてる）
 
 ---
 
-## アイデア（将来、でも慎重に）
+## 追加メモ（Copilot向け）
 
-- [ ] “flash” を cookie じゃなく response body に持たせたい場合の設計
-  - ただし server function化しない
-
-- [ ] “JSON endpoints” を増やす場合の設計
-  - `GET /__data?...` みたいな魔術はやらない
-  - 明示的な API route だけ（必要になってから）
+- 既存コードの思想："super simple" を最優先
+- 依存追加は慎重に
+- 何かを増やすなら **docs + tests** を一緒に足す
