@@ -8,10 +8,36 @@ Goal: a *Next.js alternative* for individual projects, but **super simple**:
 - **Plain HTTP** + **PRG** (POST → Redirect → GET)
 - Small files, obvious control flow (AI-friendly)
 
+## Quick Start (30 seconds)
+
+```bash
+# Clone and setup
+git clone https://github.com/linkalls/vitrio-start.git my-app
+cd my-app
+bun install
+
+# Start development server
+bun run dev
+```
+
+Open http://localhost:3000
+
+That's it! You now have a working SSR app with:
+- ✅ File-based routing
+- ✅ Server-side rendering
+- ✅ Form actions with PRG pattern
+- ✅ CSRF protection
+- ✅ Flash messages
+- ✅ Hot reload in development
+
 ## Docs
 
-- `docs/overview.md` / `docs/overview.ja.md`
-- `docs/security.md` / `docs/security.ja.md`
+- `docs/overview.md` / `docs/overview.ja.md` - Framework overview
+- `docs/security.md` / `docs/security.ja.md` - Security features
+- `docs/adding-routes.md` - Quick reference for adding routes with examples
+- `docs/ai-conventions.md` - AI-friendly conventions and project structure
+- `docs/routes.md` / `docs/routes.ja.md` - Routing details
+- `docs/perf.md` / `docs/perf-hono.md` - Performance benchmarks
 
 ## Dev
 
@@ -21,6 +47,18 @@ bun run dev
 ```
 
 Open http://localhost:3000
+
+### Development Architecture
+
+Vitrio-start uses **Vite** as the default client dev/build tool:
+
+- **Development**: Vite serves source files directly from `/src/*` with hot reload
+- **Production**: `bun run build` creates optimized bundles in `dist/client/assets/`
+- **Assets**: Built files include content hashes and are served with immutable cache headers
+
+The development server (`bun run dev`) starts both:
+1. The Hono server for SSR and API routes
+2. Vite's development module server for client-side code
 
 ## Build
 
