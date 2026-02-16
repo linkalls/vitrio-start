@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { compiledRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
+import { config } from './config'
 
 const app = new Hono()
 
@@ -18,10 +19,9 @@ app.all('*', (c) =>
 export default app
 
 if (import.meta.main) {
-  const port = Number(process.env.PORT || 3000)
-  console.log('listening on', port)
+  console.log('listening on', config.port)
   Bun.serve({
-    port,
+    port: config.port,
     fetch: app.fetch,
   })
 }

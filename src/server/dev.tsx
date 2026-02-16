@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { compiledRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
+import { config } from './config'
 
 // Dev server: serve Vite source files directly (no bundling)
 const app = new Hono()
@@ -17,6 +18,5 @@ app.all('*', (c) =>
   }),
 )
 
-const port = Number(process.env.PORT || 3000)
-console.log('dev listening on', port)
-Bun.serve({ port, fetch: app.fetch })
+console.log('dev listening on', config.port)
+Bun.serve({ port: config.port, fetch: app.fetch })

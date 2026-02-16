@@ -52,22 +52,22 @@
 - [ ] **複数loaderの結果をまとめて dehydrate**
   - すでに cacheMap に複数keyが入るのでOKだが、key/routeIdの設計を整理
 
-- [ ] **loader エラーの扱いを決める**
-  - 例：loaderがthrowしたら 500 + エラーページ
-  - 例：`notFound()` をthrow/returnしたら 404
+- [x] **loader エラーの扱いを決める**
+  - loaderがthrowしたら 500 + エラーページ（devではstack trace表示、prodでは非表示）
+  - `notFound()` をreturnしたら 404
 
-- [ ] **URL正規化（trailing slash 等）**
-  - `/a` と `/a/` を揃えるかどうか
-  - どの層でやるか（server/framework で301/308?）
+- [x] **URL正規化（trailing slash 等）**
+  - `/a/` → `/a` に 301 redirect（`/` は除く）
+  - `handleDocumentRequest` の先頭で実施
 
 
 ### Actions / Forms
 
-- [ ] **action の戻り値の型ガイド**
-  - `redirect()`
-  - `notFound()`
-  - `ok`（通常）
-  - 「ok時にflashを出す」ルールの明文化
+- [x] **action の戻り値の型ガイド**
+  - `redirect()` — 明示 redirect（flash なし）
+  - `notFound()` — flash(ok=false) + 303
+  - `{ …any }` — flash(ok=true) + 303（通常の "ok"）
+  - `ActionResult` 型を `src/server/response.ts` に追加
 
 - [ ] **Form helper（クライアントの <Form> を使うかどうか）**
   - 今は HTML form が基本
@@ -77,37 +77,37 @@
 
 ### セキュリティ（最小で堅い）
 
-- [ ] **CSRF をちゃんと運用可能に**
-  - token rotation するか（今はcookie固定）
-  - double-submit cookie方式の注意点を docs に追記
-  - SameSite=Lax の前提、例外（サードパーティ埋め込み等）
+- [x] **CSRF をちゃんと運用可能に**
+  - token rotation は現状固定（必要に応じて拡張可能）
+  - double-submit cookie方式の注意点を `docs/security.md` に追記済み
+  - SameSite=Lax の前提・例外を文書化済み
 
-- [ ] **セキュリティヘッダ（最低限）**
+- [x] **セキュリティヘッダ（最低限）**
   - `X-Content-Type-Options: nosniff`
-  - `Referrer-Policy`
-  - `Content-Security-Policy`（最小でも良い）
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`
+  - `setSecurityHeaders()` として `src/server/framework.tsx` に実装
 
 
 ### DX / 開発体験
 
-- [ ] **ルート追加テンプレを generator でなく docs で徹底**
-  - 例：`routes.tsx` にコピペするスニペット
+- [x] **ルート追加テンプレを generator でなく docs で徹底**
+  - `docs/routes.md` にコピペ用スニペット（loader only / loader+action / nested）を追加
 
-- [ ] **ログの粒度**
-  - dev: action/loader 実行ログ
-  - prod: 最小
+- [x] **ログの粒度**
+  - dev: action/loader 実行ログ（`[vitrio] METHOD path → result (ms)`）
+  - prod: `config.isProd` で抑制
 
-- [ ] **環境変数/設定の置き場所**
+- [x] **環境変数/設定の置き場所**
   - `src/server/config.ts` に集約
-  - `PORT`/`ORIGIN`/`BASE_PATH` など
+  - `PORT`/`ORIGIN`/`BASE_PATH`/`NODE_ENV` を管理
 
 
 ### テスト / CI
 
-- [ ] **CI workflow (GitHub Actions) を追加**
-  - `bun install`
-  - `bun run typecheck`
-  - `bun test`
+- [x] **CI workflow (GitHub Actions) を追加**
+  - `.github/workflows/ci.yml`
+  - `bun install` → `bun run typecheck` → `bun test`
 
 - [ ] **E2E を最小で1本**（本当に必要なら）
   - ブラウザで form submit → 303 → flash 表示
