@@ -2,6 +2,27 @@ import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { dehydrateLoaderCache, matchPath, v } from '@potetotown/vitrio'
 import { getCookie, setCookie } from 'hono/cookie'
+
+function newToken(): string {
+  // Bun has crypto.randomUUID()
+  // Fallback keeps it simple.
+  return (globalThis.crypto as any)?.randomUUID?.() ?? String(Math.random()).slice(2)
+}
+
+function ensureCsrfCookie(c: Context): string {
+  const existing = getCookie(c, 'vitrio_csrf')
+  if (existing) return existing
+  const tok = newToken()
+  // not httpOnly: needs to be embedded into SSR html/forms. still same-site.
+  setCookie(c, 'vitrio_csrf', tok, { path: '/', sameSite: 'Lax' })
+  return tok
+}
+
+function verifyCsrf(c: Context, formData: FormData): boolean {
+  const cookieTok = getCookie(c, 'vitrio_csrf')
+  const bodyTok = String(formData.get('_csrf') ?? '')
+  return !!cookieTok && cookieTok === bodyTok
+}
 import type { RouteDef } from '../routes'
 import { App } from './app'
 
@@ -33,6 +54,10 @@ async function runMatchedAction(c: Context, routes: RouteDef[], path: string, ur
     if (!params || !r.action) continue
 
     const formData = await c.req.formData()
+    if (!verifyCsrf(c, formData)) {
+      return false
+    }
+
     const ctx = {
       params,
       search: url.searchParams,
@@ -55,6 +80,9 @@ export async function handleDocumentRequest(
   const url = new URL(c.req.url)
   const path = url.pathname
 
+  // ensure CSRF cookie (GET/POST)
+  const csrfToken = ensureCsrfCookie(c)
+
   // POST -> Action -> 303 Redirect (PRG)
   if (method === 'POST') {
     try {
@@ -72,7 +100,7 @@ export async function handleDocumentRequest(
   const cacheMap = new Map<string, any>()
 
   const body = await renderToStringAsync(
-    <App path={path} locationAtom={locAtom} loaderCache={cacheMap} />,
+    <App path={path} locationAtom={locAtom} loaderCache={cacheMap} csrfToken={csrfToken} />,
   )
 
   const cache = dehydrateLoaderCache(cacheMap as any)

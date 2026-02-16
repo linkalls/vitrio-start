@@ -8,6 +8,7 @@ export function App(props: {
   path: string
   locationAtom: VAtom<any>
   loaderCache: Map<string, any>
+  csrfToken: string
 }) {
   return (
     <Router locationAtom={props.locationAtom} loaderCache={props.loaderCache}>
@@ -22,7 +23,7 @@ export function App(props: {
                 action={r.action}
               >
                 {(data: any, ctx: any) =>
-                  r.component({ data, action: ctx.action })}
+                  r.component({ data, action: ctx.action, csrfToken: props.csrfToken })}
               </RouteAny>
             )),
             <RouteAny path="*">{() => <div>404</div>}</RouteAny>,

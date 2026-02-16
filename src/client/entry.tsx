@@ -39,7 +39,7 @@ function App() {
                 action={r.action}
               >
                 {(data: any, ctx: any) =>
-                  r.component({ data, action: ctx.action })}
+                  r.component({ data, action: ctx.action, csrfToken: '' })}
               </RouteAny>
             )),
             <RouteAny path="*">{() => <div>404</div>}</RouteAny>,

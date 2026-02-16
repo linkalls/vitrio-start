@@ -5,7 +5,7 @@ export interface RouteDef {
   path: string
   loader?: RouteLoader<any>
   action?: RouteAction<any, any>
-  component: (props: { data: any; action: ActionApi<any> }) => any
+  component: (props: { data: any; action: ActionApi<any>; csrfToken: string }) => any
 }
 
 // Counter Logic
@@ -41,7 +41,7 @@ export const routes: RouteDef[] = [
     path: '/counter',
     loader: counterLoader,
     action: counterAction,
-    component: ({ data }) => (
+    component: ({ data, csrfToken }) => (
       <div>
         <h1>Counter</h1>
         <div>loader initial: {String(data.initial)}</div>
@@ -49,6 +49,7 @@ export const routes: RouteDef[] = [
 
         {/* super simple: pure HTML form + PRG */}
         <form method="post" style={{ marginTop: 20 }}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <input name="amount" type="number" defaultValue="1" />
           <button type="submit">Add (Server Action)</button>
         </form>
