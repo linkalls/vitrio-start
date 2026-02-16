@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test",
     "bench:match": "bun scripts/bench-match.ts",
-    "bench:hono": "bun scripts/bench-hono.ts"
+    "bench:hono": "bun scripts/bench-hono.ts",
+    "deploy:wrangler": "bunx wrangler deploy"
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#9793769",
@@ -21,6 +22,7 @@
     "@types/bun": "^1.3.9",
     "@types/node": "^24.0.0",
     "typescript": "^5.8.2",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.0.0"
   }
 }
