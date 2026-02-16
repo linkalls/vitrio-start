@@ -29,7 +29,9 @@ app.all('*', async (c) => {
         } catch (e) {
           console.error('Action failed', e)
         }
-        break
+
+        // PRG: POST -> redirect -> GET
+        return c.redirect(path, 303)
       }
     }
   }

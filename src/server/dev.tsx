@@ -27,17 +27,14 @@ app.all('*', async (c) => {
         const ctx = { params, search: url.searchParams, location: { path, query: url.search, hash: url.hash } }
         
         try {
-          // Execute action
-          // Note: In a real app, you'd handle redirects or return data to the renderer.
-          // For now, we just run it and let the renderer re-run loaders.
           await r.action(ctx, formData)
           console.log('Action executed successfully')
         } catch (e) {
           console.error('Action failed', e)
         }
-        // Fallthrough to render (PRG pattern usually redirects, but here we re-render)
-        // If we wanted to pass action result to render, we'd need a way to seed it.
-        break
+
+        // PRG: POST -> redirect -> GET
+        return c.redirect(path, 303)
       }
     }
   }
