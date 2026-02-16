@@ -139,6 +139,10 @@ export async function handleDocumentRequest(
   const locAtom = v({ path, query: url.search, hash: url.hash })
   const cacheMap = new Map<string, any>()
 
+  // Best-effort status code: 404 when no route matches.
+  // (We still render the app; App includes a "*" route for the UI.)
+  const hasMatch = routes.some((r) => !!matchCompiled(r._compiled, path))
+
   const body = await renderToStringAsync(
     <App path={path} locationAtom={locAtom} loaderCache={cacheMap} csrfToken={csrfToken} />,
   )
@@ -146,7 +150,8 @@ export async function handleDocumentRequest(
   const cache = dehydrateLoaderCache(cacheMap as any)
   const flash = readAndClearFlash(c)
 
-  return c.html(`<!doctype html>
+  return c.html(
+    `<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -159,5 +164,7 @@ export async function handleDocumentRequest(
     <script>globalThis.__VITRIO_FLASH__ = ${JSON.stringify(flash)};</script>
     <script type="module" src="${opts.entrySrc}"></script>
   </body>
-</html>`)
+</html>`,
+    hasMatch ? 200 : 404,
+  )
 }
