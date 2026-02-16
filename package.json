@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@potetotown/vitrio": "github:linkalls/Vitrio",
+    "@potetotown/vitrio": "github:linkalls/Vitrio#52ba55f",
     "hono": "^4.9.6"
   },
   "devDependencies": {
