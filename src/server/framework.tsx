@@ -152,12 +152,15 @@ export async function handleDocumentRequest(
 
   // Allow loader to return redirect/notFound (no magic).
   // Also: prime Vitrio loader cache so Route() does not execute loader twice in SSR.
+  let mergedParams: Record<string, string> = {}
   for (const r of matchedRoutes) {
     if (!r.loader) continue
 
     const params = matchCompiled(r._compiled, path) || {}
+    mergedParams = { ...mergedParams, ...params }
+
     const ctx = {
-      params,
+      params: mergedParams,
       search: url.searchParams,
       location: { path, query: url.search, hash: url.hash },
     }

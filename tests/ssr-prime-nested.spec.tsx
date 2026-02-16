@@ -7,20 +7,20 @@ const calls = { parent: 0, leaf: 0 }
 
 const localRoutes: any[] = [
   {
-    path: '/p/*',
-    _compiled: compilePath('/p/*'),
-    loader: async () => {
+    path: '/p/:id/*',
+    _compiled: compilePath('/p/:id/*'),
+    loader: async (ctx: any) => {
       calls.parent++
-      return { parent: true }
+      return { parent: true, id: ctx.params.id }
     },
     component: ({ data }: any) => <div>parent {String(data.parent)}</div>,
   },
   {
-    path: '/p/x',
-    _compiled: compilePath('/p/x'),
-    loader: async () => {
+    path: '/p/:id/x',
+    _compiled: compilePath('/p/:id/x'),
+    loader: async (ctx: any) => {
       calls.leaf++
-      return { leaf: true }
+      return { leaf: true, id: ctx.params.id }
     },
     component: ({ data }: any) => <div>leaf {String(data.leaf)}</div>,
   },
@@ -38,7 +38,7 @@ test('SSR primes all matching loaders (prefix + leaf) without double execution',
     }),
   )
 
-  const res = await app.request('http://local.test/p/x')
+  const res = await app.request('http://local.test/p/123/x')
   expect(res.status).toBe(200)
 
   // each loader runs once
