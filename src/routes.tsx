@@ -70,13 +70,15 @@ export const routes: RouteDef[] = [
 
             if (res.status >= 300 && res.status < 400) {
               const to = res.headers.get('Location') || '/'
-              navigate(to)
+              // Flash is httpOnly cookie -> we need a real GET request so server can
+              // embed __VITRIO_FLASH__ and clear it. So do a hard navigation.
+              window.location.assign(to)
               return
             }
 
             // Fallback: if redirect is auto-followed, move to final URL
             if ((res as any).redirected && (res as any).url) {
-              navigate((res as any).url)
+              window.location.assign((res as any).url)
             }
           }}
         >
