@@ -44,11 +44,19 @@ That's it! You now have a working SSR app with:
 
 ## Docs
 
+### Getting Started
 - `docs/overview.md` / `docs/overview.ja.md` - Framework overview
-- `docs/security.md` / `docs/security.ja.md` - Security features
 - `docs/adding-routes.md` - Quick reference for adding routes with examples
+- `docs/examples.md` - Complete working examples (login, protected routes, forms)
+
+### Advanced
+- `docs/route-contracts.md` - Loader/action contracts and cache behavior
 - `docs/ai-conventions.md` - AI-friendly conventions and project structure
 - `docs/routes.md` / `docs/routes.ja.md` - Routing details
+- `docs/security.md` / `docs/security.ja.md` - Security features
+- `docs/testing.md` - Testing guide
+
+### Performance
 - `docs/perf.md` / `docs/perf-hono.md` - Performance benchmarks
 
 ## Dev
