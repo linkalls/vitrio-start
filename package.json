@@ -2,6 +2,9 @@
   "name": "vitrio-start",
   "private": true,
   "type": "module",
+  "bin": {
+    "create-vitrio-start": "./scripts/create.ts"
+  },
   "scripts": {
     "dev": "bun --hot src/server/dev.tsx",
     "start": "bun src/server/index.tsx",

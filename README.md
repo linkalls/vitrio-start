@@ -44,6 +44,8 @@ That's it! You now have a working SSR app with:
 
 ## Docs
 
+- `docs/cli.md` (bunx GitHub link)
+
 ### Getting Started
 - `docs/overview.md` / `docs/overview.ja.md` - Framework overview
 - `docs/adding-routes.md` - Quick reference for adding routes with examples
