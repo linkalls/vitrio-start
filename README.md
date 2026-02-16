@@ -10,6 +10,8 @@ Goal: a *Next.js alternative* for individual projects, but **super simple**:
 
 ## Quick Start (30 seconds)
 
+### Option 1: Clone Repository
+
 ```bash
 # Clone and setup
 git clone https://github.com/linkalls/vitrio-start.git my-app
@@ -20,15 +22,25 @@ bun install
 bun run dev
 ```
 
+### Option 2: Use Create Script (Recommended)
+
+```bash
+# Create a new project
+bun scripts/create.ts my-app
+
+# Or skip dependency installation
+bun scripts/create.ts my-app --no-install
+```
+
 Open http://localhost:3000
 
 That's it! You now have a working SSR app with:
-- ✅ File-based routing
 - ✅ Server-side rendering
 - ✅ Form actions with PRG pattern
 - ✅ CSRF protection
 - ✅ Flash messages
 - ✅ Hot reload in development
+- ✅ Vite for fast client builds
 
 ## Docs
 
