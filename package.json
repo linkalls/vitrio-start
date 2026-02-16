@@ -8,7 +8,8 @@
     "build": "bun run build:client",
     "build:client": "bunx vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "bench:match": "bun scripts/bench-match.ts"
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#10eeaf4",

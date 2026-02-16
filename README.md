@@ -53,3 +53,11 @@ bun test
 ```
 
 Includes a minimal PRG/CSRF test: `tests/prg-csrf.spec.ts`.
+
+## Perf
+
+```bash
+bun run bench:match
+```
+
+See `docs/perf.md`.
