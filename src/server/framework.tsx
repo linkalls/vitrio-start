@@ -253,9 +253,37 @@ export async function handleDocumentRequest(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>500 - ${opts.title}</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        max-width: 800px;
+        margin: 80px auto;
+        padding: 0 20px;
+        color: #333;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #d32f2f;
+        border-bottom: 2px solid #d32f2f;
+        padding-bottom: 10px;
+      }
+      pre {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        overflow-x: auto;
+        font-size: 14px;
+      }
+      .error-code {
+        color: #999;
+        font-size: 14px;
+      }
+    </style>
   </head>
   <body>
     <h1>500 Internal Server Error</h1>
+    <p class="error-code">An error occurred while processing your request.</p>
     ${config.isProd ? '' : `<pre>${errorMessage}</pre>`}
   </body>
 </html>`,
