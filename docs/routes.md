@@ -16,6 +16,58 @@ export const routes = [
 ]
 ```
 
+## Copy-paste snippet: loader + action
+
+```tsx
+import { z } from 'zod'
+import { parseFormData } from './server/form'
+
+const mySchema = z.object({ name: z.string().min(1) })
+
+// Add to `routes` array:
+{
+  path: '/my-page',
+  loader: async (ctx) => {
+    // ctx.params, ctx.search, ctx.location
+    return { items: [] }
+  },
+  action: async (ctx, formData) => {
+    const input = parseFormData(formData as FormData, mySchema)
+    // DB operation etc.
+    return { saved: true }
+  },
+  component: ({ data, csrfToken }) => (
+    <div>
+      <h1>My Page</h1>
+      <form method="post">
+        <input type="hidden" name="_csrf" value={csrfToken} />
+        <input name="name" />
+        <button type="submit">Save</button>
+      </form>
+    </div>
+  ),
+},
+```
+
+## Nested routes (prefix + leaf)
+
+```tsx
+// Parent layout (the trailing `*` matches child paths too)
+{
+  path: '/dashboard/*',
+  loader: async (ctx) => ({ user: await getUser(ctx) }),
+  component: ({ data }) => <div>User: {data.user.name}</div>,
+},
+// Child page
+{
+  path: '/dashboard/settings',
+  loader: async (ctx) => ({ settings: await getSettings(ctx) }),
+  component: ({ data }) => <div>Settings: …</div>,
+},
+```
+
+Parent loader runs first, then child loader. Params are merged.
+
 ## Loader
 
 Loader may also return `redirect()` / `notFound()` (see `src/server/response.ts`).
@@ -30,6 +82,9 @@ On GET, the server will apply it before SSR.
 
 The SSR HTML embeds the dehydrated cache into `globalThis.__VITRIO_LOADER_CACHE__`.
 
+If a loader throws an unexpected error, the server responds with **500** and an
+error page (stack trace shown in dev, hidden in prod).
+
 ## Action (POST)
 
 `action(ctx, formData)` runs on `POST` matched by the route matcher.
@@ -39,6 +94,16 @@ By default the server uses PRG:
 - run action
 - set flash cookie
 - redirect with `303`
+
+**Action return values:**
+
+| Return | Behaviour |
+|--------|-----------|
+| `redirect(url)` | Explicit redirect (no flash) |
+| `notFound()` | flash(ok=false) + 303 redirect |
+| `{ …any }` | flash(ok=true) + 303 redirect (normal "ok") |
+
+See `ActionResult` type in `src/server/response.ts`.
 
 ## Validation example (recommended)
 

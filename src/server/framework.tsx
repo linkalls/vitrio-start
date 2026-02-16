@@ -3,6 +3,7 @@ import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { dehydrateLoaderCache, v, makeRouteCacheKey } from '@potetotown/vitrio'
 import { matchCompiled } from './match'
 import { getCookie, setCookie } from 'hono/cookie'
+import { config } from './config'
 
 function newToken(): string {
   // Bun has crypto.randomUUID()
@@ -50,6 +51,26 @@ function setFlash(c: Context, ok: boolean) {
 }
 
 import { isRedirect, isNotFound } from './response'
+
+// --- Security headers (minimal, applied to every document response) ---
+
+function setSecurityHeaders(c: Context) {
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+  // Minimal CSP: only same-origin by default + inline scripts (for dehydration).
+  // Tighten per-project as needed.
+  c.header(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+  )
+}
+
+// --- Logging helpers ---
+
+function logRequest(method: string, path: string, label: string, ms: number) {
+  if (config.isProd) return
+  console.log(`[vitrio] ${method} ${path} → ${label} (${ms}ms)`)
+}
 
 async function runMatchedAction(
   c: Context,
@@ -107,9 +128,19 @@ export async function handleDocumentRequest(
   routes: CompiledRouteDef[],
   opts: { title: string; entrySrc: string },
 ) {
+  const t0 = Date.now()
   const method = c.req.method
   const url = new URL(c.req.url)
   const path = url.pathname
+
+  // --- URL normalization: strip trailing slash (except root "/") ---
+  if (path !== '/' && path.endsWith('/')) {
+    const normalized = path.slice(0, -1) + url.search
+    return c.redirect(normalized, 301)
+  }
+
+  // Security headers on every document response
+  setSecurityHeaders(c)
 
   // ensure CSRF cookie (GET/POST)
   const csrfToken = ensureCsrfCookie(c)
@@ -118,6 +149,8 @@ export async function handleDocumentRequest(
   if (method === 'POST') {
     try {
       const r = await runMatchedAction(c, routes, path, url)
+
+      logRequest(method, path, r.kind, Date.now() - t0)
 
       if (r.kind === 'redirect') {
         // explicit redirect from action (no flash)
@@ -139,6 +172,7 @@ export async function handleDocumentRequest(
       return c.redirect(path, 303)
     } catch (e) {
       console.error('Action failed', e)
+      logRequest(method, path, 'error', Date.now() - t0)
       setFlash(c, false)
       return c.redirect(path, 303)
     }
@@ -158,6 +192,7 @@ export async function handleDocumentRequest(
   // Best-effort status code: 404 when no route matches.
   // (We still render the app; App includes a "*" route for the UI.)
   let hasMatch = matchedRoutes.length > 0
+  let loaderError: unknown = null
 
   // Allow loader to return redirect/notFound (no magic).
   // Also: prime Vitrio loader cache so Route() does not execute loader twice in SSR.
@@ -177,6 +212,7 @@ export async function handleDocumentRequest(
     try {
       const out = await r.loader(ctx as any)
       if (isRedirect(out)) {
+        logRequest(method, path, 'loader-redirect', Date.now() - t0)
         return c.redirect(out.to, (out.status ?? 302) as any)
       }
       if (isNotFound(out)) {
@@ -189,14 +225,42 @@ export async function handleDocumentRequest(
       cacheMap.set(key, { status: 'fulfilled', value: out })
     } catch (e: any) {
       if (isRedirect(e)) {
+        logRequest(method, path, 'loader-redirect', Date.now() - t0)
         return c.redirect(e.to, (e.status ?? 302) as any)
       }
       if (isNotFound(e)) {
         hasMatch = false
         break
       }
-      throw e
+      // Loader threw an unexpected error → 500
+      console.error('Loader error', e)
+      loaderError = e
+      break
     }
+  }
+
+  // If a loader threw, render a 500 error page
+  if (loaderError) {
+    logRequest(method, path, '500', Date.now() - t0)
+    const errorMessage = config.isProd
+      ? 'Internal Server Error'
+      : String(loaderError instanceof Error ? loaderError.stack || loaderError.message : loaderError)
+
+    return c.html(
+      `<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>500 - ${opts.title}</title>
+  </head>
+  <body>
+    <h1>500 Internal Server Error</h1>
+    ${config.isProd ? '' : `<pre>${errorMessage}</pre>`}
+  </body>
+</html>`,
+      500,
+    )
   }
 
   const body = await renderToStringAsync(
@@ -205,6 +269,8 @@ export async function handleDocumentRequest(
 
   const cache = dehydrateLoaderCache(cacheMap as any)
   const flash = readAndClearFlash(c)
+
+  logRequest(method, path, hasMatch ? '200' : '404', Date.now() - t0)
 
   return c.html(
     `<!doctype html>
