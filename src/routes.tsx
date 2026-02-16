@@ -1,4 +1,6 @@
 import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
+import { z } from 'zod'
+import { parseFormData } from './server/form'
 
 // Minimal route definition type
 export interface RouteDef {
@@ -13,15 +15,19 @@ function counterLoader() {
   return Promise.resolve({ initial: 123 })
 }
 
+const counterActionInput = z.object({
+  amount: z.coerce.number().int().min(1).max(100),
+})
+
 async function counterAction(ctx: any, formData: any) {
-  // Hono/Bun環境によって FormData じゃなく plain object が来ることがあるので吸収
-  const raw = typeof formData?.get === 'function'
-    ? formData.get('amount')
-    : (formData?.amount ?? 1)
-  const amount = Number(raw || 1)
-  console.log('Action run on server!', amount)
+  // Server always passes FormData in our framework.
+  // (Keeping it strict keeps things simple.)
+  const fd = formData as FormData
+  const input = parseFormData(fd, counterActionInput)
+
+  console.log('Action run on server!', input.amount)
   // Simulate DB
-  return { newCount: 123 + amount }
+  return { newCount: 123 + input.amount }
 }
 
 // Routes

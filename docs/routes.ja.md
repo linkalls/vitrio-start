@@ -44,13 +44,16 @@ SSR HTMLは `globalThis.__VITRIO_LOADER_CACHE__` に dehydrate した内容を�
 
 actionごとに schema パース（Zod等）を入れるのが安全でAIフレンドリー。
 
-擬似例：
+このrepoには最小ヘルパが入ってる：`src/server/form.ts` → `parseFormData()`
 
 ```ts
+import { z } from 'zod'
+import { parseFormData } from './server/form'
+
 const schema = z.object({ amount: z.coerce.number().int().min(1).max(100) })
 
 export async function action(ctx, formData: FormData) {
-  const input = schema.parse({ amount: formData.get('amount') })
+  const input = parseFormData(formData, schema)
   // ...
 }
 ```

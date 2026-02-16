@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#10eeaf4",
-    "hono": "^4.9.6"
+    "hono": "^4.9.6",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@types/bun": "^1.3.9",

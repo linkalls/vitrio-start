@@ -41,13 +41,16 @@ By default the server uses PRG:
 
 Use a schema parser in each action (e.g. Zod).
 
-Pseudo-example:
+This repo includes a tiny helper: `src/server/form.ts` → `parseFormData()`.
 
 ```ts
+import { z } from 'zod'
+import { parseFormData } from './server/form'
+
 const schema = z.object({ amount: z.coerce.number().int().min(1).max(100) })
 
 export async function action(ctx, formData: FormData) {
-  const input = schema.parse({ amount: formData.get('amount') })
+  const input = parseFormData(formData, schema)
   // ...
 }
 ```
