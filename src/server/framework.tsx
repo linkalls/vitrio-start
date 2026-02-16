@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
-import { dehydrateLoaderCache, matchPath, v } from '@potetotown/vitrio'
+import { dehydrateLoaderCache, v } from '@potetotown/vitrio'
+import { matchCompiled } from './match'
 import { getCookie, setCookie } from 'hono/cookie'
 
 function newToken(): string {
@@ -23,7 +24,7 @@ function verifyCsrf(c: Context, formData: FormData): boolean {
   const bodyTok = String(formData.get('_csrf') ?? '')
   return !!cookieTok && cookieTok === bodyTok
 }
-import type { RouteDef } from '../routes'
+import type { CompiledRouteDef } from '../routes'
 import { App } from './app'
 
 export type FlashPayload = { ok: boolean; at: number } | null
@@ -48,9 +49,14 @@ function setFlash(c: Context, ok: boolean) {
   })
 }
 
-async function runMatchedAction(c: Context, routes: RouteDef[], path: string, url: URL) {
+async function runMatchedAction(
+  c: Context,
+  routes: CompiledRouteDef[],
+  path: string,
+  url: URL,
+) {
   for (const r of routes) {
-    const params = matchPath(r.path, path)
+    const params = matchCompiled(r._compiled, path)
     if (!params || !r.action) continue
 
     const formData = await c.req.formData()
@@ -73,7 +79,7 @@ async function runMatchedAction(c: Context, routes: RouteDef[], path: string, ur
 
 export async function handleDocumentRequest(
   c: Context,
-  routes: RouteDef[],
+  routes: CompiledRouteDef[],
   opts: { title: string; entrySrc: string },
 ) {
   const method = c.req.method

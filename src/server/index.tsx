@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
-import { routes } from '../routes'
+import { compiledRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
 
 const app = new Hono()
@@ -9,7 +9,7 @@ const app = new Hono()
 app.use('/assets/*', serveStatic({ root: './dist/client' }))
 
 app.all('*', (c) =>
-  handleDocumentRequest(c, routes, {
+  handleDocumentRequest(c, compiledRoutes as any, {
     title: 'vitrio-start',
     entrySrc: '/src/client/entry.tsx',
   }),

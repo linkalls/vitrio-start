@@ -1,14 +1,21 @@
 import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
 import { z } from 'zod'
 import { parseFormData } from './server/form'
+import { compilePath, type CompiledPath } from './server/match'
 
 // Minimal route definition type
 export interface RouteDef {
   path: string
   loader?: RouteLoader<any>
   action?: RouteAction<any, any>
-  component: (props: { data: any; action: ActionApi<any>; csrfToken: string }) => any
+  component: (props: {
+    data: any
+    action: ActionApi<any>
+    csrfToken: string
+  }) => any
 }
+
+export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
 
 // Counter Logic
 function counterLoader() {
@@ -63,3 +70,8 @@ export const routes: RouteDef[] = [
     ),
   },
 ]
+
+export const compiledRoutes: CompiledRouteDef[] = routes.map((r) => ({
+  ...r,
+  _compiled: compilePath(r.path),
+}))
