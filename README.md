@@ -58,6 +58,7 @@ Includes a minimal PRG/CSRF test: `tests/prg-csrf.spec.ts`.
 
 ```bash
 bun run bench:match
+bun run bench:hono
 ```
 
-See `docs/perf.md`.
+See `docs/perf.md` and `docs/perf-hono.md`.

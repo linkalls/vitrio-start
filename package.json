@@ -9,7 +9,8 @@
     "build:client": "bunx vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test",
-    "bench:match": "bun scripts/bench-match.ts"
+    "bench:match": "bun scripts/bench-match.ts",
+    "bench:hono": "bun scripts/bench-hono.ts"
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#10eeaf4",
