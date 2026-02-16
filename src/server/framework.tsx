@@ -63,9 +63,18 @@ async function runMatchedAction(
   | { kind: 'redirect'; to: string; status: number }
   | { kind: 'notfound'; status: number }
 > {
-  for (const r of routes) {
-    const params = matchCompiled(r._compiled, path)
-    if (!params || !r.action) continue
+  // Find all matching routes with actions; prefer leaf-most action.
+  const matched = routes
+    .filter((r) => !!matchCompiled(r._compiled, path))
+    .sort((a, b) => a._compiled.segments.length - b._compiled.segments.length)
+
+  // Merge params parent -> child (same as client Route())
+  let mergedParams: Record<string, string> = {}
+  for (const r of matched) {
+    const p = matchCompiled(r._compiled, path)
+    if (p) mergedParams = { ...mergedParams, ...p }
+
+    if (!r.action) continue
 
     const formData = await c.req.formData()
     if (!verifyCsrf(c, formData)) {
@@ -73,7 +82,7 @@ async function runMatchedAction(
     }
 
     const ctx = {
-      params,
+      params: mergedParams,
       search: url.searchParams,
       location: { path, query: url.search, hash: url.hash },
     }
