@@ -13,8 +13,12 @@ function counterLoader() {
   return Promise.resolve({ initial: 123 })
 }
 
-async function counterAction(ctx: any, formData: FormData) {
-  const amount = Number(formData.get('amount') || 1)
+async function counterAction(ctx: any, formData: any) {
+  // Hono/Bun環境によって FormData じゃなく plain object が来ることがあるので吸収
+  const raw = typeof formData?.get === 'function'
+    ? formData.get('amount')
+    : (formData?.amount ?? 1)
+  const amount = Number(raw || 1)
   console.log('Action run on server!', amount)
   // Simulate DB
   return { newCount: 123 + amount }
