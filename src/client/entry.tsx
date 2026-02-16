@@ -1,4 +1,7 @@
-import { render, Router, Routes, Route, A, Suspense, v, get, set, derive } from '@potetotown/vitrio'
+import { render, Router, Routes, Route, A, Suspense, v, get, set, derive, hydrateLoaderCache } from '@potetotown/vitrio'
+
+// SSR loader cache hydration
+hydrateLoaderCache((globalThis as any).__VITRIO_LOADER_CACHE__)
 
 const RoutesAny = Routes as any
 const RouteAny = Route as any

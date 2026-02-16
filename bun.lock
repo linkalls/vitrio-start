@@ -5,7 +5,7 @@
     "": {
       "name": "vitrio-start",
       "dependencies": {
-        "@potetotown/vitrio": "github:linkalls/Vitrio#52ba55f",
+        "@potetotown/vitrio": "github:linkalls/Vitrio#b9ee963",
         "hono": "^4.9.6",
       },
       "devDependencies": {
@@ -69,7 +69,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.3", "", { "os": "win32", "cpu": "x64" }, "sha512-4uJGhsxuptu3OcpVAzli+/gWusVGwZZHTlS63hh++ehExkVT8SgiEf7/uC/PclrPPkLhZqGgCTjd0VWLo6xMqA=="],
 
-    "@potetotown/vitrio": ["@potetotown/vitrio@github:linkalls/Vitrio#52ba55f", {}, "linkalls-Vitrio-52ba55f"],
+    "@potetotown/vitrio": ["@potetotown/vitrio@github:linkalls/Vitrio#b9ee963", {}, "linkalls-Vitrio-b9ee963"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.57.1", "", { "os": "android", "cpu": "arm" }, "sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg=="],
 

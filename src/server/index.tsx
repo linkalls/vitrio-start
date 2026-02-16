@@ -1,15 +1,20 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
-import { renderToString } from '@potetotown/vitrio/server'
+import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { App } from './app'
+import { dehydrateLoaderCache, hydrateLoaderCache } from '@potetotown/vitrio'
 
 const app = new Hono()
 
 // Static client assets (after `bun run build`)
 app.use('/assets/*', serveStatic({ root: './dist/client' }))
 
-app.get('*', (c) => {
-  const body = renderToString(<App path={c.req.path} />)
+app.get('*', async (c) => {
+  // Ensure fresh per-request cache (for now)
+  hydrateLoaderCache({})
+
+  const body = await renderToStringAsync(<App path={c.req.path} />)
+  const cache = dehydrateLoaderCache()
 
   return c.html(`<!doctype html>
 <html>
@@ -20,6 +25,7 @@ app.get('*', (c) => {
   </head>
   <body>
     <div id="app">${body}</div>
+    <script>globalThis.__VITRIO_LOADER_CACHE__ = ${JSON.stringify(cache)};</script>
     <script type="module" src="/src/client/entry.tsx"></script>
   </body>
 </html>`)
