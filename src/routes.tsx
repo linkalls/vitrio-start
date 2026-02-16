@@ -2,6 +2,7 @@ import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
 import { z } from 'zod'
 import { parseFormData } from './server/form'
 import { compilePath, type CompiledPath } from './server/match'
+import { redirect, notFound } from './server/response'
 
 // Minimal route definition type
 export interface RouteDef {
@@ -68,6 +69,16 @@ export const routes: RouteDef[] = [
         </form>
       </div>
     ),
+  },
+  {
+    path: '/redir',
+    loader: () => redirect('/counter'),
+    component: () => <div>redirecting...</div>,
+  },
+  {
+    path: '/gone',
+    loader: () => notFound(),
+    component: () => <div>gone</div>,
   },
 ]
 

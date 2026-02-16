@@ -139,9 +139,43 @@ export async function handleDocumentRequest(
   const locAtom = v({ path, query: url.search, hash: url.hash })
   const cacheMap = new Map<string, any>()
 
+  // Find first matching route (excluding catch-all).
+  const matched = routes.find(
+    (r) => r.path !== '*' && !!matchCompiled(r._compiled, path),
+  )
+
   // Best-effort status code: 404 when no route matches.
   // (We still render the app; App includes a "*" route for the UI.)
-  const hasMatch = routes.some((r) => !!matchCompiled(r._compiled, path))
+  let hasMatch = !!matched
+
+  // Allow loader to return redirect/notFound (no magic).
+  if (matched?.loader) {
+    const params = matchCompiled(matched._compiled, path) || {}
+    const ctx = {
+      params,
+      search: url.searchParams,
+      location: { path, query: url.search, hash: url.hash },
+    }
+
+    try {
+      const out = await matched.loader(ctx as any)
+      if (isRedirect(out)) {
+        return c.redirect(out.to, (out.status ?? 302) as any)
+      }
+      if (isNotFound(out)) {
+        hasMatch = false
+      }
+    } catch (e: any) {
+      if (isRedirect(e)) {
+        return c.redirect(e.to, (e.status ?? 302) as any)
+      }
+      if (isNotFound(e)) {
+        hasMatch = false
+      } else {
+        throw e
+      }
+    }
+  }
 
   const body = await renderToStringAsync(
     <App path={path} locationAtom={locAtom} loaderCache={cacheMap} csrfToken={csrfToken} />,

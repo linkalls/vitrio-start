@@ -19,6 +19,9 @@ export const routes = [
 
 ## Loader
 
+loaderも `redirect()` / `notFound()` を返せる（`src/server/response.ts`）。
+GET時はSSR前にサーバがそれを適用する。
+
 `loader(ctx)` は SSR(GET) で走って、
 だいたい次の情報で作ったキーでキャッシュされる：
 

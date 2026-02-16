@@ -18,6 +18,9 @@ export const routes = [
 
 ## Loader
 
+Loader may also return `redirect()` / `notFound()` (see `src/server/response.ts`).
+On GET, the server will apply it before SSR.
+
 `loader(ctx)` runs during SSR (GET) and is cached by a stable key derived from:
 
 - routeId
