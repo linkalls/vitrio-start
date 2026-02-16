@@ -26,11 +26,3 @@ app.all('*', (c) =>
 )
 
 export default app
-
-if (import.meta.main) {
-  console.log('listening on', config.port)
-  Bun.serve({
-    port: config.port,
-    fetch: app.fetch,
-  })
-}
