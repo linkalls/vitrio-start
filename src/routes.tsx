@@ -2,21 +2,46 @@ import type { RouteLoader, RouteAction, ActionApi } from '@potetotown/vitrio'
 import { z } from 'zod'
 import { parseFormData } from './server/form'
 import { compilePath, type CompiledPath } from './server/match'
-import { redirect, notFound } from './server/response'
+import { redirect, notFound, type RedirectResult, type NotFoundResult } from './server/response'
+
+// Loader result type - can return data or special responses
+export type LoaderResult<T = unknown> = RedirectResult | NotFoundResult | T
+
+// Action result type - can return data or special responses
+export type ActionResult<T = unknown> = RedirectResult | NotFoundResult | T
 
 // Minimal route definition type
-export interface RouteDef {
+export interface RouteDef<
+  TLoaderData = any,
+  TActionData = any
+> {
   path: string
-  loader?: RouteLoader<any>
-  action?: RouteAction<any, any>
+  loader?: (ctx: any) => Promise<LoaderResult<TLoaderData>> | LoaderResult<TLoaderData>
+  action?: (ctx: any, formData: FormData) => Promise<ActionResult<TActionData>> | ActionResult<TActionData>
   component: (props: {
-    data: any
-    action: ActionApi<any>
+    data: TLoaderData
+    action: ActionApi<TActionData>
     csrfToken: string
   }) => any
 }
 
 export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
+
+/**
+ * Helper to define a route with better type inference.
+ * 
+ * Usage:
+ *   const myRoute = defineRoute({
+ *     path: '/users/:id',
+ *     loader: async (ctx) => ({ user: ... }),
+ *     component: ({ data }) => <div>{data.user.name}</div>
+ *   })
+ */
+export function defineRoute<TLoaderData = never, TActionData = never>(
+  route: RouteDef<TLoaderData, TActionData>
+): RouteDef<TLoaderData, TActionData> {
+  return route
+}
 
 // Counter Logic
 function counterLoader() {
