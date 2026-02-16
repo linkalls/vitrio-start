@@ -27,5 +27,4 @@ A minimal `netlify.toml` is included.
 ## Notes
 
 - This file references `entrySrc: /assets/entry.js`.
-  - As with Workers, you should map your built entry to a stable path.
-  - Easiest: copy/rename your Vite entry to `dist/client/assets/entry.js`.
+- `bun run build` runs Vite and then copies the chosen JS to `dist/client/assets/entry.js` via `scripts/fix-entry.js`.

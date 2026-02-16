@@ -6,7 +6,7 @@
     "dev": "bun --hot src/server/dev.tsx",
     "start": "bun src/server/index.tsx",
     "build": "bun run build:client",
-    "build:client": "bunx vite build",
+    "build:client": "bunx vite build && node scripts/fix-entry.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test",
     "bench:match": "bun scripts/bench-match.ts",

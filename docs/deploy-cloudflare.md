@@ -30,6 +30,5 @@ bunx wrangler deploy
 ## Notes
 
 - The worker is configured to use `entrySrc: /assets/entry.js`.
-  - If you use Vite default output, you must map this to the actual built entry file.
-  - Easiest approach: rename/copy your built entry to `dist/client/assets/entry.js`.
-- If you want zero-magic, keep this explicit.
+- This repo makes that explicit and stable:
+  - `bun run build` runs Vite, then `scripts/fix-entry.js` copies the chosen built JS to `dist/client/assets/entry.js`.
