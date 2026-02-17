@@ -1,68 +1,111 @@
-import { render, Router, Routes, Route, Suspense, hydrateLoaderCache } from '@potetotown/vitrio'
-import { routes } from '../routes'
+// Client entry (loaded only for routes with RouteDef.client=true).
+// Goal: small, page-enhancing JS ("use client"-style) while keeping SSR content usable.
 
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null
+function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text)
+
+  // Fallback
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      ta.style.top = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      const ok = document.execCommand('copy')
+      ta.remove()
+      ok ? resolve() : reject(new Error('copy failed'))
+    } catch (e) {
+      reject(e)
+    }
+  })
 }
 
-function isFlash(x: unknown): x is { ok: boolean; at: number } {
-  if (typeof x !== 'object' || x === null) return false
-  const ok = Reflect.get(x, 'ok')
-  const at = Reflect.get(x, 'at')
-  return typeof ok === 'boolean' && typeof at === 'number'
-}
+function enhanceCopyButtons() {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-copy]'))
+  for (const btn of buttons) {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-copy') ?? ''
+      if (!text) return
 
-// Hydrate loader cache from server
-if (isRecord(globalThis.__VITRIO_LOADER_CACHE__)) {
-  hydrateLoaderCache(globalThis.__VITRIO_LOADER_CACHE__)
-}
-
-function FlashBanner() {
-  const raw = globalThis.__VITRIO_FLASH__
-  if (!isFlash(raw)) return null
-  const flash = raw
-  return (
-    <div
-      style={
-        'padding:10px 12px;border-radius:8px;margin:12px 0;' +
-        (flash.ok
-          ? 'background:#e9f7ef;border:1px solid #7bd89f;color:#135f2d;'
-          : 'background:#fdecea;border:1px solid #f19999;color:#7a1111;')
+      const prev = btn.textContent
+      try {
+        await copyToClipboard(text)
+        btn.textContent = 'Copied'
+        btn.setAttribute('data-copied', '1')
+        setTimeout(() => {
+          btn.textContent = prev ?? 'Copy'
+          btn.removeAttribute('data-copied')
+        }, 1200)
+      } catch {
+        btn.textContent = 'Failed'
+        setTimeout(() => {
+          btn.textContent = prev ?? 'Copy'
+        }, 1200)
       }
-    >
-      {flash.ok ? 'Saved!' : 'Failed...'}
-    </div>
-  )
+    })
+  }
 }
 
-function App() {
-  return (
-    <Router>
-      <FlashBanner />
-      <Suspense fallback={<div>loading...</div>}>
-        {
-          Routes({
-            children: [
-              ...routes.map((r) =>
-                Route({
-                  path: r.path,
-                  loader: r.loader,
-                  action: r.action,
-                  children: (
-                    data: unknown,
-                    ctx: import('@potetotown/vitrio').LoaderCtx & {
-                      action: import('@potetotown/vitrio').ActionApi<FormData, unknown>
-                    },
-                  ) => r.component({ data, action: ctx.action, csrfToken: '' }),
-                }),
-              ),
-              Route({ path: '*', children: () => <div>404</div> }),
-            ],
-          })
-        }
-      </Suspense>
-    </Router>
-  )
+function setActiveToc(hash: string) {
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[data-toc-link]'))
+  for (const a of links) {
+    const isActive = a.getAttribute('href') === hash
+    a.classList.toggle('bg-zinc-950/60', isActive)
+    a.classList.toggle('text-zinc-100', isActive)
+    a.classList.toggle('text-zinc-300', !isActive)
+  }
 }
 
-render(<App />, document.getElementById('app')!)
+function enhanceTocActiveSection() {
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[data-toc-link]'))
+  const ids = links
+    .map((a) => (a.getAttribute('href') ?? '').trim())
+    .filter((h) => h.startsWith('#'))
+    .map((h) => h.slice(1))
+
+  const sections = ids
+    .map((id) => document.getElementById(id))
+    .filter((x): x is HTMLElement => !!x)
+
+  if (sections.length === 0) return
+
+  const onIntersect: IntersectionObserverCallback = (entries) => {
+    // pick the top-most intersecting entry
+    const visible = entries
+      .filter((e) => e.isIntersecting)
+      .sort((a, b) => (a.boundingClientRect.top ?? 0) - (b.boundingClientRect.top ?? 0))[0]
+
+    if (!visible?.target) return
+    const id = (visible.target as HTMLElement).id
+    if (id) setActiveToc('#' + id)
+  }
+
+  const io = new IntersectionObserver(onIntersect, {
+    root: null,
+    // Trigger a bit before the heading reaches the top (Next.js docs-ish).
+    rootMargin: '-25% 0px -70% 0px',
+    threshold: [0, 1],
+  })
+
+  for (const s of sections) io.observe(s)
+
+  // Initial state
+  if (location.hash) setActiveToc(location.hash)
+  else setActiveToc('#' + sections[0].id)
+
+  window.addEventListener('hashchange', () => setActiveToc(location.hash))
+}
+
+function main() {
+  // For now, only enhance reference page.
+  if (location.pathname !== '/reference') return
+
+  enhanceCopyButtons()
+  enhanceTocActiveSection()
+}
+
+main()

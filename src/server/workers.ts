@@ -3,20 +3,33 @@ import { compiledRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
 
 // Cloudflare Workers entry.
-// Note: Workers does not have Bun's file system. Serve assets via:
-// - Cloudflare Pages (recommended) OR
-// - Workers Static Assets (wrangler assets) if you wire it up.
-// This worker focuses on SSR document responses.
+// SSR lives in this Worker.
+// Static assets are served via Wrangler Assets binding (see wrangler.toml).
 
-const app = new Hono()
+type Env = Record<string, unknown> & {
+  ASSETS?: { fetch: (req: Request) => Promise<Response> }
+}
 
+const app = new Hono<{ Bindings: Env }>()
+
+// Serve built client assets (Vite output) from the assets binding.
+app.get('/assets/*', async (c) => {
+  if (!c.env.ASSETS) return c.notFound()
+  return c.env.ASSETS.fetch(c.req.raw)
+})
+
+// Everything else: SSR
 app.all('*', (c) =>
   handleDocumentRequest(c, compiledRoutes, {
     title: 'vitrio-start',
-    // In Workers you should point this to your built client entry.
-    // If using Pages/Vite build output, adjust accordingly.
     entrySrc: '/assets/entry.js',
   }),
 )
 
-export default app
+export default {
+  fetch(request: Request, env: Env, ctx: any) {
+    // Make env bindings available to non-handler modules (e.g. config.ts).
+    ;(globalThis as any).__VITRIO_ENV = env
+    return app.fetch(request, env, ctx)
+  },
+}

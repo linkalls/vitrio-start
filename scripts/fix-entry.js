@@ -19,18 +19,21 @@ mkdirSync(assets, { recursive: true })
 
 const files = walk(assets)
 
-// Heuristic: pick the largest JS module file as entry.
-// (No magic import graph parsing; just a stable convention.)
+// Pick the Vite entry chunk (index-*.js). The assets directory may contain
+// many additional chunks; choosing "largest JS" breaks when code-splitting exists.
 const js = files.filter((f) => f.endsWith('.js'))
+const indexJs = js.filter((f) => /\/assets\/index-.*\.js$/.test(f.replace(/\\/g, '/')))
 
-if (js.length === 0) {
-  console.error('[fix-entry] No JS files found in dist/client/assets')
+if (indexJs.length === 0) {
+  console.error('[fix-entry] No index-*.js found in dist/client/assets')
+  console.error(`[fix-entry] Found JS files: ${js.length}`)
   process.exit(1)
 }
 
-let best = js[0]
+// If multiple index chunks exist, pick the largest among them.
+let best = indexJs[0]
 let bestSize = statSync(best).size
-for (const f of js) {
+for (const f of indexJs) {
   const sz = statSync(f).size
   if (sz > bestSize) {
     best = f

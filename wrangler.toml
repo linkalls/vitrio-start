@@ -2,6 +2,9 @@ name = "vitrio-start"
 main = "src/server/workers.ts"
 compatibility_date = "2026-02-16"
 
-# If you use Workers + Assets, configure this. Otherwise deploy SSR only.
-# [assets]
-# directory = "dist/client"
+# Serve built client assets from Vite output, but keep `/` handled by the Worker (SSR).
+# This prevents `dist/client/index.html` from shadowing the Worker response.
+[assets]
+directory = "dist/client"
+binding = "ASSETS"
+run_worker_first = true

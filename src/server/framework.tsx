@@ -30,9 +30,9 @@ function verifyCsrf(c: Context, formData: FormData): boolean {
   return !!cookieTok && cookieTok === bodyTok
 }
 import type { CompiledRouteDef } from '../routes'
-import { App } from './app'
+import type { ActionApi } from '@potetotown/vitrio'
 
-export type FlashPayload = { ok: boolean; at: number } | null
+export type FlashPayload = { ok: boolean; at: number; newCount?: number } | null
 
 function readAndClearFlash(c: Context): FlashPayload {
   const raw = getCookie(c, 'vitrio_flash')
@@ -46,8 +46,8 @@ function readAndClearFlash(c: Context): FlashPayload {
   }
 }
 
-function setFlash(c: Context, ok: boolean) {
-  setCookie(c, 'vitrio_flash', JSON.stringify({ ok, at: Date.now() }), {
+function setFlash(c: Context, payload: Exclude<FlashPayload, null>) {
+  setCookie(c, 'vitrio_flash', JSON.stringify(payload), {
     path: '/',
     httpOnly: true,
     sameSite: 'Lax',
@@ -89,7 +89,7 @@ async function runMatchedAction(
 ): Promise<
   | { kind: 'no-match' }
   | { kind: 'csrf-fail' }
-  | { kind: 'ok' }
+  | { kind: 'ok'; out: unknown }
   | { kind: 'redirect'; to: string; status: RedirectStatus }
   | { kind: 'notfound'; status: number }
 > {
@@ -126,7 +126,7 @@ async function runMatchedAction(
       return { kind: 'notfound', status: out.status ?? 404 }
     }
 
-    return { kind: 'ok' }
+    return { kind: 'ok', out }
   }
 
   return { kind: 'no-match' }
@@ -167,22 +167,27 @@ export async function handleDocumentRequest(
       }
 
       if (r.kind === 'notfound') {
-        setFlash(c, false)
+        setFlash(c, { ok: false, at: Date.now() })
         return c.redirect(path, 303)
       }
 
       if (r.kind === 'csrf-fail' || r.kind === 'no-match') {
-        setFlash(c, false)
+        setFlash(c, { ok: false, at: Date.now() })
         return c.redirect(path, 303)
       }
 
       // ok
-      setFlash(c, true)
+      const out = r.out
+      const newCount =
+        out && typeof out === 'object' && typeof (out as any).newCount === 'number'
+          ? Number((out as any).newCount)
+          : undefined
+      setFlash(c, { ok: true, at: Date.now(), ...(newCount != null ? { newCount } : {}) })
       return c.redirect(path, 303)
     } catch (e) {
       console.error('Action failed', e)
       logRequest(method, path, 'error', Date.now() - t0)
-      setFlash(c, false)
+      setFlash(c, { ok: false, at: Date.now() })
       return c.redirect(path, 303)
     }
   }
@@ -300,14 +305,67 @@ export async function handleDocumentRequest(
     )
   }
 
-  const body = await renderToStringAsync(
-    <App path={path} locationAtom={locAtom} loaderCache={cacheMap} csrfToken={csrfToken} />,
-  )
+  // --- SSR-first render ---
+  // Default: SSR-only (no client router/hydration). Some routes can opt into
+  // client-side JS ("use client"-style) via RouteDef.client.
 
-  const cache = dehydrateLoaderCache(cacheMap)
+  const bestMatch = routes
+    .filter((r) => r.path !== '*' && !!matchCompiled(r._compiled, path))
+    .sort((a, b) => b._compiled.segments.length - a._compiled.segments.length)[0]
+
+  const enableClient = !!(bestMatch as any)?.client
+
   const flash = readAndClearFlash(c)
 
+  // Minimal ActionApi stub (components may accept it even if unused in SSR)
+  const actionStub: ActionApi<FormData, unknown> = {
+    run: async () => {
+      throw new Error('Actions are not available in SSR-only mode. Submit the HTML form (POST) instead.')
+    },
+    pending: () => false,
+    error: () => undefined,
+    data: () => undefined,
+  }
+
+  // Recompute ctx + loader data for the best match
+  let ssrVNode: any = null
+  if (bestMatch) {
+    const params = matchCompiled(bestMatch._compiled, path) || {}
+    const ctx: LoaderCtx = {
+      params,
+      search: url.searchParams,
+      location: { path, query: url.search, hash: url.hash },
+    }
+    const key = makeRouteCacheKey(bestMatch.path, ctx)
+    const entry = cacheMap.get(key)
+    const data = entry && 'status' in entry && entry.status === 'fulfilled' ? entry.value : undefined
+    ssrVNode = bestMatch.component({ data, action: actionStub, csrfToken })
+  } else {
+    hasMatch = false
+  }
+
+  const body = await renderToStringAsync(ssrVNode as any)
+
   logRequest(method, path, hasMatch ? '200' : '404', Date.now() - t0)
+
+  const flashBanner =
+    flash && flash.ok
+      ? `<div class="mx-auto max-w-3xl px-6 pt-6">
+           <div class="rounded-2xl border border-emerald-800/60 bg-emerald-950/40 p-4 text-emerald-100">
+             <div class="text-sm font-semibold">Saved</div>
+             <div class="mt-1 text-sm text-emerald-200">
+               ${flash.newCount != null ? `New count: <span class="font-mono">${flash.newCount}</span>` : `Action completed successfully.`}
+             </div>
+           </div>
+         </div>`
+      : flash && !flash.ok
+        ? `<div class="mx-auto max-w-3xl px-6 pt-6">
+             <div class="rounded-2xl border border-rose-800/60 bg-rose-950/40 p-4 text-rose-100">
+               <div class="text-sm font-semibold">Failed</div>
+               <div class="mt-1 text-sm text-rose-200">Something went wrong (CSRF / no matching action).</div>
+             </div>
+           </div>`
+        : ''
 
   return c.html(
     `<!doctype html>
@@ -316,12 +374,13 @@ export async function handleDocumentRequest(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${opts.title}</title>
+    <link rel="stylesheet" href="/assets/tailwind.css" />
   </head>
-  <body>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    ${flashBanner}
     <div id="app">${body}</div>
-    <script>globalThis.__VITRIO_LOADER_CACHE__ = ${JSON.stringify(cache)};</script>
     <script>globalThis.__VITRIO_FLASH__ = ${JSON.stringify(flash)};</script>
-    <script type="module" src="${opts.entrySrc}"></script>
+    ${enableClient ? `<script src="${opts.entrySrc}"></script>` : ''}
   </body>
 </html>`,
     hasMatch ? 200 : 404,
