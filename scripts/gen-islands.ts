@@ -2,16 +2,14 @@ import { readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, extname } from 'node:path'
 
 // Convention:
-// - Place client-island components under src/islands/*.client.tsx
-// - Each file must export a component (named export) AND an `ISLAND_NAME` string.
-//   Example:
-//     export const ISLAND_NAME = 'Counter'
-//     export function Counter(props: { initial: number }) { ... }
+// - Any file under src/** ending with *.client.tsx is treated as a client island.
+// - Recommended: default export the component.
+// - Optional: export const ISLAND_NAME = 'Name' to override naming.
 //
 // This script generates src/client/islands.gen.ts which exports `islands` registry.
 
 const ROOT = process.cwd()
-const ISLANDS_DIR = join(ROOT, 'src', 'islands')
+const ISLANDS_DIR = join(ROOT, 'src')
 const OUT = join(ROOT, 'src', 'client', 'islands.gen.ts')
 
 type Entry = { file: string; importPath: string; stem: string }
@@ -21,10 +19,16 @@ function walk(dir: string, out: Entry[]) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name)
     const st = statSync(full)
-    if (st.isDirectory()) walk(full, out)
-    else if (st.isFile() && name.endsWith('.client.tsx')) {
+    if (st.isDirectory()) {
+      // Skip client runtime & server folders to avoid self-import loops
+      if (full.endsWith(join('src', 'client')) || full.endsWith(join('src', 'server'))) continue
+      walk(full, out)
+      continue
+    }
+
+    if (st.isFile() && name.endsWith('.client.tsx')) {
+      // Create import path relative to src/client (because islands.gen.ts lives there)
       const rel = relative(join(ROOT, 'src', 'client'), full)
-      // path from src/client -> src/islands/...
       const importPath = './' + rel.replace(/\\/g, '/').replace(/\.tsx$/, '')
       const stem = name.replace(/\.client\.tsx$/, '')
       out.push({ file: full, importPath, stem })
