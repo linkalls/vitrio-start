@@ -101,11 +101,13 @@ function enhanceTocActiveSection() {
 }
 
 function main() {
-  // For now, only enhance reference page.
-  if (location.pathname !== '/reference') return
-
+  // Always attach copy listeners (it's lightweight)
   enhanceCopyButtons()
-  enhanceTocActiveSection()
+
+  // Enhance reference pages only if TOC exists (feature detection).
+  if (document.querySelector('a[data-toc-link]')) {
+    enhanceTocActiveSection()
+  }
 }
 
 main()
