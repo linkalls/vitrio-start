@@ -100,11 +100,20 @@ function enhanceTocActiveSection() {
   window.addEventListener('hashchange', () => setActiveToc(location.hash))
 }
 
+import { hydrateIslands } from './islands'
+
 function main() {
-  // Always attach copy listeners (it's lightweight)
+  // 1) Islands: upgrade interactive components (mount into markers)
+  // Users register their islands here.
+  hydrateIslands({
+    // Example:
+    // Counter: (props) => <Counter {...props} />,
+  })
+
+  // 2) Small global enhancements
   enhanceCopyButtons()
 
-  // Enhance reference pages only if TOC exists (feature detection).
+  // 3) TOC enhancement (feature-detected)
   if (document.querySelector('a[data-toc-link]')) {
     enhanceTocActiveSection()
   }

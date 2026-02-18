@@ -20,7 +20,7 @@
     "deploy:netlify": "echo 'Bundle src/server/netlify.ts to netlify/functions/server and deploy via Netlify UI/CLI'"
   },
   "dependencies": {
-    "@potetotown/vitrio": "github:linkalls/Vitrio#9793769",
+    "@potetotown/vitrio": "github:linkalls/Vitrio#d4ad056",
     "hono": "^4.9.6",
     "shiki": "^3.22.0",
     "zod": "^4.1.0"
