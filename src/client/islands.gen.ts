@@ -3,4 +3,7 @@
 
 import type { IslandRegistry } from './islands'
 
-export const islands: IslandRegistry = {}
+
+export const islands: IslandRegistry = {
+
+}
