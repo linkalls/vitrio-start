@@ -102,13 +102,13 @@ function enhanceTocActiveSection() {
 
 import { hydrateIslands } from './islands'
 
-function main() {
+async function main() {
   // 1) Islands: upgrade interactive components (mount into markers)
   // Users register their islands here.
-  hydrateIslands({
-    // Example:
-    // Counter: (props) => <Counter {...props} />,
-  })
+  // auto-generated registry (src/islands/*.client.tsx)
+  // see scripts/gen-islands.ts
+  const { islands } = await import('./islands.gen')
+  hydrateIslands(islands)
 
   // 2) Small global enhancements
   enhanceCopyButtons()
@@ -119,4 +119,4 @@ function main() {
   }
 }
 
-main()
+main().catch((e) => console.error('[vitrio] client entry failed', e))

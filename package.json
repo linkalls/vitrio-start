@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "bun --hot src/server/dev.tsx",
     "start": "bun src/server/index.tsx",
-    "build": "bun run build:highlight && bun run build:client && bun run build:css",
+    "build": "bun run build:islands && bun run build:highlight && bun run build:client && bun run build:css", 
+    "build:islands": "node scripts/gen-islands.ts",
     "build:highlight": "node scripts/gen-highlight.mjs",
     "build:client": "bunx vite build && node scripts/fix-entry.js",
     "build:css": "bunx @tailwindcss/cli -i src/client/tailwind.css -o dist/client/assets/tailwind.css --minify",
