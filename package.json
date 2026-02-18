@@ -9,7 +9,7 @@
     "dev": "bun run build:routes && bun --hot src/server/dev.tsx",
     "start": "bun run build:routes && bun src/server/index.tsx",
     "build": "bun run build:routes && bun run build:islands && bun run build:highlight && bun run build:client && bun run build:css", 
-    "build:routes": "node scripts/gen-routes.mjs",
+    "build:routes": "bun scripts/gen-routes.ts",
     "build:islands": "node scripts/gen-islands.ts",
     "build:highlight": "node scripts/gen-highlight.mjs",
     "build:client": "bunx vite build && node scripts/fix-entry.js",
