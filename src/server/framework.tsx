@@ -29,7 +29,7 @@ function verifyCsrf(c: Context, formData: FormData): boolean {
   const bodyTok = String(formData.get('_csrf') ?? '')
   return !!cookieTok && cookieTok === bodyTok
 }
-import type { CompiledRouteDef } from '../routes'
+import type { CompiledRouteDef } from '../route'
 import type { ActionApi } from '@potetotown/vitrio'
 
 export type FlashPayload = { ok: boolean; at: number; newCount?: number } | null
