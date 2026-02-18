@@ -367,6 +367,8 @@ export async function handleDocumentRequest(
            </div>`
         : ''
 
+  const dehydrated = dehydrateLoaderCache(cacheMap)
+
   return c.html(
     `<!doctype html>
 <html>
@@ -379,6 +381,7 @@ export async function handleDocumentRequest(
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
     ${flashBanner}
     <div id="app">${body}</div>
+    <script>globalThis.__VITRIO_LOADER_CACHE__ = ${JSON.stringify(dehydrated)};</script>
     <script>globalThis.__VITRIO_FLASH__ = ${JSON.stringify(flash)};</script>
     ${enableClient ? `<script src="${opts.entrySrc}"></script>` : ''}
   </body>

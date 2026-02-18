@@ -163,6 +163,70 @@ export const routes = [
     },
   }),
 
+  // --- Test/demo routes (used by bun test) ---
+  defineRoute({
+    path: '/counter',
+    loader: () => ({ count: 0 }),
+    action: async (_ctx, formData) => {
+      const prev = Number(formData.get('count') ?? 0)
+      const next = Number.isFinite(prev) ? prev + 1 : 1
+      return { newCount: next }
+    },
+    component: ({ data, csrfToken }) => {
+      const d = z.object({ count: z.number() }).parse(data)
+      return (
+        <div class="mx-auto max-w-xl px-6 py-16">
+          <h1 class="text-2xl font-semibold">Counter</h1>
+          <p class="mt-3 text-zinc-300">Tests use this page to verify CSRF/flash/security headers.</p>
+
+          <form method="post" class="mt-6 flex items-center gap-3">
+            <input type="hidden" name="_csrf" value={csrfToken} />
+            <input type="hidden" name="count" value={String(d.count)} />
+            <button class="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white">Increment</button>
+            <span class="text-sm text-zinc-400">current: <span class="font-mono text-zinc-200">{String(d.count)}</span></span>
+          </form>
+        </div>
+      )
+    },
+  }),
+
+  defineRoute({
+    path: '/redir',
+    loader: async () => {
+      // Loader redirect test
+      const { redirect } = await import('./server/response')
+      return redirect('/counter', 302)
+    },
+    component: () => <div />,
+  }),
+
+  defineRoute({
+    path: '/gone',
+    loader: async () => {
+      const { notFound } = await import('./server/response')
+      return notFound()
+    },
+    component: () => <div />,
+  }),
+
+  defineRoute({
+    path: '/action-redirect',
+    loader: () => ({}),
+    action: async () => {
+      const { redirect } = await import('./server/response')
+      return redirect('/', 303)
+    },
+    component: ({ csrfToken }) => (
+      <div class="mx-auto max-w-xl px-6 py-16">
+        <h1 class="text-2xl font-semibold">Action Redirect</h1>
+        <form method="post" class="mt-6">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <button class="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white">POST</button>
+        </form>
+      </div>
+    ),
+  }),
+
   defineRoute({
     path: '/docs',
     loader: () => ({}),
