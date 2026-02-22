@@ -1,10 +1,26 @@
 import { readdirSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { join, relative, sep, posix } from 'node:path'
+import { join, relative, sep, posix, dirname } from 'node:path'
 
 type PageEntry = {
   file: string
   routePath: string
   importPath: string
+  alias: string
+}
+
+type LayoutEntry = {
+  file: string
+  /** Directory path relative to PAGES_DIR ('' = root, 'blog' = blog dir, etc.) */
+  relDir: string
+  importPath: string
+  alias: string
+}
+
+type ApiEntry = {
+  file: string
+  routePath: string
+  importPath: string
+  alias: string
 }
 
 const ROOT = process.cwd()
@@ -15,97 +31,185 @@ function toPosix(p: string) {
   return p.split(sep).join(posix.sep)
 }
 
-function walk(dir: string, out: string[]) {
+function walk(dir: string, matchFile: (name: string) => boolean, out: string[]) {
   if (!existsSync(dir)) return
   for (const name of readdirSync(dir)) {
     const full = join(dir, name)
     const st = statSync(full)
     if (st.isDirectory()) {
       if (name.startsWith('_')) continue
-      walk(full, out)
+      walk(full, matchFile, out)
       continue
     }
-
     if (!st.isFile()) continue
-    if (name === 'page.tsx') out.push(full)
+    if (matchFile(name)) out.push(full)
   }
 }
 
-function segmentToPath(seg: string) {
-  // [id] -> :id
-  const m1 = seg.match(/^\[(.+)\]$/)
-  if (m1) {
-    const inner = m1[1]
-    const mCatch = inner.match(/^\.{3}(.+)$/)
-    if (mCatch) return '*'
-    return `:${inner}`
-  }
-
+/**
+ * Convert a file path segment to a route segment.
+ * - Route groups `(group)` are skipped (return null)
+ * - `[...param]` → `*`
+ * - `[param]` → `:param`
+ * - anything else → as-is
+ */
+function segmentToPath(seg: string): string | null {
+  // Route groups like (auth) don't affect the URL path
+  if (seg.startsWith('(') && seg.endsWith(')')) return null
+  // [...catchAll] → *
+  const mCatch = seg.match(/^\[\.{3}(.+)\]$/)
+  if (mCatch) return '*'
+  // [param] → :param
+  const mParam = seg.match(/^\[(.+)\]$/)
+  if (mParam) return `:${mParam[1]}`
   return seg
 }
 
 function fileToRoutePath(file: string) {
-  // file: .../src/pages/foo/[id]/page.tsx
   const rel = relative(PAGES_DIR, file)
   const parts = toPosix(rel).split('/')
-  // drop trailing page.tsx
+  // drop trailing filename (page.tsx or route.ts)
   parts.pop()
-
-  const segs = parts.filter(Boolean).map(segmentToPath)
+  const segs = parts.filter(Boolean).map(segmentToPath).filter((s): s is string => s !== null)
   const path = '/' + segs.join('/')
   return path === '/' ? '/' : path
 }
 
 function fileToImportPath(file: string) {
-  // routes.fs.gen.ts lives under src/, so import path is relative to src
+  // routes.fs.gen.ts lives under src/, so import path is relative to src/
   const relFromSrc = relative(join(ROOT, 'src'), file)
-  return './' + toPosix(relFromSrc).replace(/\.tsx$/, '')
+  return './' + toPosix(relFromSrc).replace(/\.tsx?$/, '')
 }
 
-const files: string[] = []
-walk(PAGES_DIR, files)
+function fileToRelDir(file: string): string {
+  const relFromPages = relative(PAGES_DIR, dirname(file))
+  const posixRel = toPosix(relFromPages)
+  return posixRel === '.' ? '' : posixRel
+}
 
-const pages: PageEntry[] = files
-  .map((file) => ({
+// --- Collect pages (page.tsx) ---
+const pageFiles: string[] = []
+walk(PAGES_DIR, (name) => name === 'page.tsx', pageFiles)
+const pages: PageEntry[] = pageFiles
+  .map((file, i) => ({
     file,
     routePath: fileToRoutePath(file),
     importPath: fileToImportPath(file),
+    alias: `p${i}`,
   }))
   .sort((a, b) => a.routePath.localeCompare(b.routePath))
 
+// --- Collect layouts (layout.tsx) ---
+const layoutFiles: string[] = []
+walk(PAGES_DIR, (name) => name === 'layout.tsx', layoutFiles)
+const layouts: LayoutEntry[] = layoutFiles
+  .map((file, i) => ({
+    file,
+    relDir: fileToRelDir(file),
+    importPath: fileToImportPath(file),
+    alias: `layout${i}`,
+  }))
+  .sort((a, b) => a.relDir.localeCompare(b.relDir))
+
+// --- Collect API routes (route.ts / route.tsx) ---
+const apiFiles: string[] = []
+walk(PAGES_DIR, (name) => name === 'route.ts' || name === 'route.tsx', apiFiles)
+const apis: ApiEntry[] = apiFiles
+  .map((file, i) => ({
+    file,
+    routePath: fileToRoutePath(file),
+    importPath: fileToImportPath(file),
+    alias: `api${i}`,
+  }))
+  .sort((a, b) => a.routePath.localeCompare(b.routePath))
+
+/**
+ * Find layouts that apply to a given page file, ordered from root (outermost) to
+ * the page's own directory (innermost).
+ */
+function getApplicableLayouts(pageFile: string): LayoutEntry[] {
+  const pageRelDir = fileToRelDir(pageFile)
+  const parts = pageRelDir ? pageRelDir.split('/') : []
+
+  const applicable: LayoutEntry[] = []
+  const dirsToCheck = ['', ...parts.map((_, i) => parts.slice(0, i + 1).join('/'))]
+
+  for (const dir of dirsToCheck) {
+    const layout = layouts.find((l) => l.relDir === dir)
+    if (layout) applicable.push(layout)
+  }
+  return applicable
+}
+
+/**
+ * Build the component expression for a page, wrapping it with applicable layouts.
+ * Layouts are applied root-first (outermost → innermost → page content).
+ */
+function buildComponentExpr(pageAlias: string, applicableLayouts: LayoutEntry[]): string {
+  if (applicableLayouts.length === 0) {
+    return `${pageAlias}.default ?? ${pageAlias}.component`
+  }
+  let inner = `(${pageAlias}.default ?? ${pageAlias}.component)(props)`
+  // Wrap from innermost layout outward
+  for (const layout of [...applicableLayouts].reverse()) {
+    inner = `(${layout.alias}.default as any)({ children: ${inner} })`
+  }
+  return `(props) => ${inner}`
+}
+
+// --- Generate output ---
 const lines: string[] = []
 lines.push(`// AUTO-GENERATED by scripts/gen-routes.ts`)
 lines.push(`// Do not edit manually.`)
 lines.push('')
-lines.push(`import type { RouteDef } from './route'`)
+lines.push(`import type { RouteDef, ApiRouteDef } from './route'`)
 
-const entries: string[] = []
-pages.forEach((p, i) => {
-  const alias = `p${i}`
-
-  lines.push(`import * as ${alias} from ${JSON.stringify(p.importPath)}`)
-
-  // Require a component export (default or named)
-  const componentExpr = `${alias}.default ?? ${alias}.component`
-
-  entries.push(
-    [
-      '  {',
-      `    path: ${JSON.stringify(p.routePath)},`,
-      `    client: (${alias}.client ?? false) as boolean,`,
-      `    loader: ${alias}.loader,`,
-      `    action: ${alias}.action,`,
-      `    component: ${componentExpr} as any,`,
-      '  }',
-    ].join('\n'),
-  )
-})
+for (const layout of layouts) {
+  lines.push(`import * as ${layout.alias} from ${JSON.stringify(layout.importPath)}`)
+}
+for (const page of pages) {
+  lines.push(`import * as ${page.alias} from ${JSON.stringify(page.importPath)}`)
+}
+for (const api of apis) {
+  lines.push(`import * as ${api.alias} from ${JSON.stringify(api.importPath)}`)
+}
 
 lines.push('')
+
+// fsRoutes
+const pageEntries: string[] = pages.map((p) => {
+  const applicableLayouts = getApplicableLayouts(p.file)
+  const componentExpr = buildComponentExpr(p.alias, applicableLayouts)
+  return [
+    '  {',
+    `    path: ${JSON.stringify(p.routePath)},`,
+    `    client: (${p.alias}.client ?? false) as boolean,`,
+    `    metadata: ${p.alias}.metadata,`,
+    `    loader: ${p.alias}.loader,`,
+    `    action: ${p.alias}.action,`,
+    `    component: ${componentExpr} as any,`,
+    '  }',
+  ].join('\n')
+})
+
 lines.push(`export const fsRoutes: RouteDef[] = [`)
-lines.push(entries.join(',\n'))
+lines.push(pageEntries.join(',\n'))
+lines.push(`]`)
+lines.push('')
+
+// fsApiRoutes — HTTP method handlers from route.ts files
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
+const apiEntries: string[] = apis.map((a) => {
+  const methodLines = HTTP_METHODS.map((m) => `    ${m}: (${a.alias} as any).${m},`).join('\n')
+  return ['  {', `    path: ${JSON.stringify(a.routePath)},`, methodLines, '  }'].join('\n')
+})
+
+lines.push(`export const fsApiRoutes: ApiRouteDef[] = [`)
+lines.push(apiEntries.join(',\n'))
 lines.push(`]`)
 lines.push('')
 
 writeFileSync(OUT_FILE, lines.join('\n'), 'utf8')
-console.log(`[gen-routes] wrote ${OUT_FILE} (${pages.length} route(s))`) 
+console.log(
+  `[gen-routes] wrote ${OUT_FILE} (${pages.length} page(s), ${layouts.length} layout(s), ${apis.length} api route(s))`,
+) 

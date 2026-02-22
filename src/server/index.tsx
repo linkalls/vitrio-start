@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
-import { compiledRoutes } from '../routes'
+import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
+import { mountApiRoutes } from './mount-api-routes'
 import { config } from './config'
 
 const app = new Hono()
@@ -17,6 +18,9 @@ app.use('/assets/*', async (c, next) => {
 })
 
 app.use('/assets/*', serveStatic({ root: './dist/client' }))
+
+// File-based API routes (from src/pages/**/route.ts)
+mountApiRoutes(app, fsApiRoutes)
 
 app.all('*', (c) =>
   handleDocumentRequest(c, compiledRoutes, {

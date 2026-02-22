@@ -1,12 +1,16 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/netlify'
-import { compiledRoutes } from '../routes'
+import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
+import { mountApiRoutes } from './mount-api-routes'
 
 // Netlify Functions entry.
 // This runs as a Netlify function (Node runtime) via `hono/netlify` adapter.
 
 const app = new Hono()
+
+// File-based API routes (from src/pages/**/route.ts)
+mountApiRoutes(app, fsApiRoutes)
 
 app.all('*', (c) =>
   handleDocumentRequest(c, compiledRoutes, {
