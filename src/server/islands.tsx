@@ -1,4 +1,4 @@
-import type { VNode } from '@potetotown/vitrio'
+import type { VNode } from '@potetotown/vitrio/jsx-runtime'
 
 export function IslandMarker(p: {
   name: string
