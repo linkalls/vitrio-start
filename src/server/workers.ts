@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
-import { compiledRoutes } from '../routes'
+import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
+import { mountApiRoutes } from './mount-api-routes'
 
 // Cloudflare Workers entry.
 // SSR lives in this Worker.
@@ -17,6 +18,9 @@ app.get('/assets/*', async (c) => {
   if (!c.env.ASSETS) return c.notFound()
   return c.env.ASSETS.fetch(c.req.raw)
 })
+
+// File-based API routes (from src/pages/**/route.ts)
+mountApiRoutes(app, fsApiRoutes)
 
 // Everything else: SSR
 app.all('*', (c) =>

@@ -1,9 +1,12 @@
 import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { dehydrateLoaderCache, v, makeRouteCacheKey, type LoaderCtx } from '@potetotown/vitrio'
+import type { ActionApi } from '@potetotown/vitrio'
 import { matchCompiled } from './match'
 import { getCookie, setCookie } from 'hono/cookie'
 import { config } from './config'
+import type { CompiledRouteDef, PageMetadata } from '../route'
+import { isRedirect, isNotFound, type RedirectStatus } from './response'
 
 function newToken(): string {
   // Bun has crypto.randomUUID()
@@ -29,8 +32,14 @@ function verifyCsrf(c: Context, formData: FormData): boolean {
   const bodyTok = String(formData.get('_csrf') ?? '')
   return !!cookieTok && cookieTok === bodyTok
 }
-import type { CompiledRouteDef } from '../route'
-import type { ActionApi } from '@potetotown/vitrio'
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
 export type FlashPayload = { ok: boolean; at: number; newCount?: number } | null
 
@@ -53,8 +62,6 @@ function setFlash(c: Context, payload: Exclude<FlashPayload, null>) {
     sameSite: 'Lax',
   })
 }
-
-import { isRedirect, isNotFound, type RedirectStatus } from './response'
 
 type CacheEntry =
   | { status: 'pending'; promise: Promise<unknown> }
@@ -135,7 +142,7 @@ async function runMatchedAction(
 export async function handleDocumentRequest(
   c: Context,
   routes: CompiledRouteDef[],
-  opts: { title: string; entrySrc: string },
+  opts: { title: string; entrySrc: string; lang?: string },
 ) {
   const t0 = Date.now()
   const method = c.req.method
@@ -369,13 +376,47 @@ export async function handleDocumentRequest(
 
   const dehydrated = dehydrateLoaderCache(cacheMap)
 
+  // --- Per-page metadata (from RouteDef.metadata) ---
+  const metadata: PageMetadata | undefined = bestMatch?.metadata
+  const pageTitle = metadata?.title
+    ? `${escapeHtml(metadata.title)} | ${escapeHtml(opts.title)}`
+    : escapeHtml(opts.title)
+
+  const metaHeadTags = [
+    metadata?.description
+      ? `<meta name="description" content="${escapeHtml(metadata.description)}" />`
+      : '',
+    metadata?.keywords
+      ? `<meta name="keywords" content="${escapeHtml(metadata.keywords)}" />`
+      : '',
+    metadata?.openGraph?.title
+      ? `<meta property="og:title" content="${escapeHtml(metadata.openGraph.title)}" />`
+      : '',
+    metadata?.openGraph?.description
+      ? `<meta property="og:description" content="${escapeHtml(metadata.openGraph.description)}" />`
+      : '',
+    metadata?.openGraph?.image
+      ? `<meta property="og:image" content="${escapeHtml(metadata.openGraph.image)}" />`
+      : '',
+    metadata?.openGraph?.type
+      ? `<meta property="og:type" content="${escapeHtml(metadata.openGraph.type)}" />`
+      : '',
+    metadata?.canonical
+      ? `<link rel="canonical" href="${escapeHtml(metadata.canonical)}" />`
+      : '',
+    metadata?.noIndex ? '<meta name="robots" content="noindex, nofollow" />' : '',
+  ]
+    .filter(Boolean)
+    .join('\n    ')
+
   return c.html(
     `<!doctype html>
-<html>
+<html lang="${escapeHtml(opts.lang ?? 'en')}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${opts.title}</title>
+    <title>${pageTitle}</title>
+    ${metaHeadTags}
     <link rel="stylesheet" href="/assets/tailwind.css" />
   </head>
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
