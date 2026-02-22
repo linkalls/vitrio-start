@@ -1,32 +1,39 @@
-import { Hono } from 'hono'
-import { serveStatic } from 'hono/bun'
 import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
-import { mountApiRoutes } from './mount-api-routes'
+import { handleApiRoutes } from './mount-api-routes'
 import { config } from './config'
 
-const app = new Hono()
-
-// Static client assets (after `bun run build`)
-// Serve with immutable cache headers for hashed assets
-app.use('/assets/*', async (c, next) => {
-  await next()
-  // Add cache headers for built assets (they are content-hashed by Vite)
-  if (c.res.status === 200) {
-    c.header('Cache-Control', 'public, max-age=31536000, immutable')
+// Production server: serve built assets from dist/client
+async function serveStaticAsset(pathname: string): Promise<Response | null> {
+  const file = Bun.file('./dist/client' + pathname)
+  if (await file.exists()) {
+    const headers = new Headers({ 'Cache-Control': 'public, max-age=31536000, immutable' })
+    return new Response(file, { headers })
   }
-})
+  return null
+}
 
-app.use('/assets/*', serveStatic({ root: './dist/client' }))
+async function fetch(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const pathname = url.pathname
 
-// File-based API routes (from src/pages/**/route.ts)
-mountApiRoutes(app, fsApiRoutes)
+  // Static client assets (after `bun run build`)
+  // Serve with immutable cache headers for hashed assets
+  if (pathname.startsWith('/assets/')) {
+    const res = await serveStaticAsset(pathname)
+    if (res) return res
+    return new Response('Not Found', { status: 404 })
+  }
 
-app.all('*', (c) =>
-  handleDocumentRequest(c, compiledRoutes, {
+  // File-based API routes (from src/pages/**/route.ts)
+  const apiResponse = await handleApiRoutes(request, fsApiRoutes)
+  if (apiResponse) return apiResponse
+
+  // Document request (SSR)
+  return handleDocumentRequest(request, compiledRoutes, {
     title: 'vitrio-start',
     entrySrc: '/src/client/entry.tsx',
-  }),
-)
+  })
+}
 
-export default app
+export default { port: config.port, fetch }

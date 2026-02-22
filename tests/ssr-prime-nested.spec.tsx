@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 import type { CompiledRouteDef } from '../src/routes'
@@ -35,15 +34,11 @@ test('SSR primes all matching loaders (prefix + leaf) without double execution',
   calls.parent = 0
   calls.leaf = 0
 
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, localRoutes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
+  const res = await handleDocumentRequest(
+    new Request('http://local.test/p/123/x'),
+    localRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
   )
-
-  const res = await app.request('http://local.test/p/123/x')
   expect(res.status).toBe(200)
 
   // each loader runs once

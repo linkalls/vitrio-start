@@ -1,15 +1,13 @@
-import type { Context } from 'hono'
 import { renderToStringAsync } from '@potetotown/vitrio/server'
 import { dehydrateLoaderCache, v, makeRouteCacheKey, type LoaderCtx } from '@potetotown/vitrio'
 import type { ActionApi } from '@potetotown/vitrio'
 import { matchCompiled } from './match'
-import { getCookie, setCookie } from 'hono/cookie'
 import { config } from './config'
 import type { CompiledRouteDef, PageMetadata } from '../route'
 import { isRedirect, isNotFound, type RedirectStatus } from './response'
 
 function newToken(): string {
-  // Bun has crypto.randomUUID()
+  // Bun / Workers have crypto.randomUUID()
   // Fallback keeps it simple.
   const c = globalThis.crypto
   if (c && 'randomUUID' in c && typeof c.randomUUID === 'function') {
@@ -18,17 +16,81 @@ function newToken(): string {
   return String(Math.random()).slice(2)
 }
 
-function ensureCsrfCookie(c: Context): string {
-  const existing = getCookie(c, 'vitrio_csrf')
+// --- Native cookie helpers ---
+
+function parseCookies(request: Request): Record<string, string> {
+  const header = request.headers.get('cookie') || ''
+  const result: Record<string, string> = {}
+  for (const part of header.split(';')) {
+    const eqIdx = part.indexOf('=')
+    if (eqIdx < 0) continue
+    const name = part.slice(0, eqIdx).trim()
+    const value = part.slice(eqIdx + 1).trim()
+    try {
+      result[name] = decodeURIComponent(value)
+    } catch {
+      result[name] = value
+    }
+  }
+  return result
+}
+
+interface CookieOptions {
+  path?: string
+  maxAge?: number
+  httpOnly?: boolean
+  sameSite?: 'Lax' | 'Strict' | 'None'
+}
+
+function serializeCookie(name: string, value: string, opts: CookieOptions = {}): string {
+  let s = `${name}=${encodeURIComponent(value)}`
+  if (opts.path) s += `; Path=${opts.path}`
+  if (opts.maxAge !== undefined) s += `; Max-Age=${opts.maxAge}`
+  if (opts.httpOnly) s += `; HttpOnly`
+  if (opts.sameSite) s += `; SameSite=${opts.sameSite}`
+  return s
+}
+
+// --- Response builders ---
+
+function applySecurityHeaders(headers: Headers): void {
+  headers.set('X-Content-Type-Options', 'nosniff')
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  // Minimal CSP: only same-origin by default + inline scripts (for dehydration).
+  // Tighten per-project as needed.
+  headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+  )
+}
+
+function makeRedirect(location: string, status: number, setCookies: string[]): Response {
+  const headers = new Headers({ Location: location })
+  applySecurityHeaders(headers)
+  for (const cookie of setCookies) headers.append('Set-Cookie', cookie)
+  return new Response(null, { status, headers })
+}
+
+function makeHtml(body: string, status: number, setCookies: string[]): Response {
+  const headers = new Headers({ 'Content-Type': 'text/html; charset=UTF-8' })
+  applySecurityHeaders(headers)
+  for (const cookie of setCookies) headers.append('Set-Cookie', cookie)
+  return new Response(body, { status, headers })
+}
+
+// --- CSRF helpers ---
+
+function ensureCsrfCookie(cookies: Record<string, string>, setCookies: string[]): string {
+  const existing = cookies['vitrio_csrf']
   if (existing) return existing
   const tok = newToken()
   // not httpOnly: needs to be embedded into SSR html/forms. still same-site.
-  setCookie(c, 'vitrio_csrf', tok, { path: '/', sameSite: 'Lax' })
+  setCookies.push(serializeCookie('vitrio_csrf', tok, { path: '/', sameSite: 'Lax' }))
   return tok
 }
 
-function verifyCsrf(c: Context, formData: FormData): boolean {
-  const cookieTok = getCookie(c, 'vitrio_csrf')
+function verifyCsrf(cookies: Record<string, string>, formData: FormData): boolean {
+  const cookieTok = cookies['vitrio_csrf']
   const bodyTok = String(formData.get('_csrf') ?? '')
   return !!cookieTok && cookieTok === bodyTok
 }
@@ -43,11 +105,11 @@ function escapeHtml(s: string): string {
 
 export type FlashPayload = { ok: boolean; at: number; newCount?: number } | null
 
-function readAndClearFlash(c: Context): FlashPayload {
-  const raw = getCookie(c, 'vitrio_flash')
+function readAndClearFlash(cookies: Record<string, string>, setCookies: string[]): FlashPayload {
+  const raw = cookies['vitrio_flash']
   if (!raw) return null
   // clear (1-shot)
-  setCookie(c, 'vitrio_flash', '', { path: '/', maxAge: 0 })
+  setCookies.push(serializeCookie('vitrio_flash', '', { path: '/', maxAge: 0 }))
   try {
     return JSON.parse(raw)
   } catch {
@@ -55,31 +117,20 @@ function readAndClearFlash(c: Context): FlashPayload {
   }
 }
 
-function setFlash(c: Context, payload: Exclude<FlashPayload, null>) {
-  setCookie(c, 'vitrio_flash', JSON.stringify(payload), {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'Lax',
-  })
+function setFlash(setCookies: string[], payload: Exclude<FlashPayload, null>): void {
+  setCookies.push(
+    serializeCookie('vitrio_flash', JSON.stringify(payload), {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
+    }),
+  )
 }
 
 type CacheEntry =
   | { status: 'pending'; promise: Promise<unknown> }
   | { status: 'fulfilled'; value: unknown }
   | { status: 'rejected'; error: unknown }
-
-// --- Security headers (minimal, applied to every document response) ---
-
-function setSecurityHeaders(c: Context) {
-  c.header('X-Content-Type-Options', 'nosniff')
-  c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Minimal CSP: only same-origin by default + inline scripts (for dehydration).
-  // Tighten per-project as needed.
-  c.header(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-  )
-}
 
 // --- Logging helpers ---
 
@@ -89,7 +140,8 @@ function logRequest(method: string, path: string, label: string, ms: number) {
 }
 
 async function runMatchedAction(
-  c: Context,
+  request: Request,
+  cookies: Record<string, string>,
   routes: CompiledRouteDef[],
   path: string,
   url: URL,
@@ -113,8 +165,8 @@ async function runMatchedAction(
 
     if (!r.action) continue
 
-    const formData = await c.req.formData()
-    if (!verifyCsrf(c, formData)) {
+    const formData = await request.formData()
+    if (!verifyCsrf(cookies, formData)) {
       return { kind: 'csrf-fail' }
     }
 
@@ -140,47 +192,50 @@ async function runMatchedAction(
 }
 
 export async function handleDocumentRequest(
-  c: Context,
+  request: Request,
   routes: CompiledRouteDef[],
   opts: { title: string; entrySrc: string; lang?: string },
-) {
+): Promise<Response> {
   const t0 = Date.now()
-  const method = c.req.method
-  const url = new URL(c.req.url)
+  const method = request.method
+  const url = new URL(request.url)
   const path = url.pathname
+
+  // Accumulate Set-Cookie headers for the response
+  const setCookies: string[] = []
+
+  // Parse incoming cookies
+  const cookies = parseCookies(request)
 
   // --- URL normalization: strip trailing slash (except root "/") ---
   if (path !== '/' && path.endsWith('/')) {
     const normalized = path.slice(0, -1) + url.search
-    return c.redirect(normalized, 301)
+    return makeRedirect(normalized, 301, setCookies)
   }
 
-  // Security headers on every document response
-  setSecurityHeaders(c)
-
   // ensure CSRF cookie (GET/POST)
-  const csrfToken = ensureCsrfCookie(c)
+  const csrfToken = ensureCsrfCookie(cookies, setCookies)
 
   // POST -> Action -> Redirect (PRG)
   if (method === 'POST') {
     try {
-      const r = await runMatchedAction(c, routes, path, url)
+      const r = await runMatchedAction(request, cookies, routes, path, url)
 
       logRequest(method, path, r.kind, Date.now() - t0)
 
       if (r.kind === 'redirect') {
         // explicit redirect from action (no flash)
-        return c.redirect(r.to, r.status)
+        return makeRedirect(r.to, r.status, setCookies)
       }
 
       if (r.kind === 'notfound') {
-        setFlash(c, { ok: false, at: Date.now() })
-        return c.redirect(path, 303)
+        setFlash(setCookies, { ok: false, at: Date.now() })
+        return makeRedirect(path, 303, setCookies)
       }
 
       if (r.kind === 'csrf-fail' || r.kind === 'no-match') {
-        setFlash(c, { ok: false, at: Date.now() })
-        return c.redirect(path, 303)
+        setFlash(setCookies, { ok: false, at: Date.now() })
+        return makeRedirect(path, 303, setCookies)
       }
 
       // ok
@@ -189,13 +244,13 @@ export async function handleDocumentRequest(
         out && typeof out === 'object' && typeof (out as any).newCount === 'number'
           ? Number((out as any).newCount)
           : undefined
-      setFlash(c, { ok: true, at: Date.now(), ...(newCount != null ? { newCount } : {}) })
-      return c.redirect(path, 303)
+      setFlash(setCookies, { ok: true, at: Date.now(), ...(newCount != null ? { newCount } : {}) })
+      return makeRedirect(path, 303, setCookies)
     } catch (e) {
       console.error('Action failed', e)
       logRequest(method, path, 'error', Date.now() - t0)
-      setFlash(c, { ok: false, at: Date.now() })
-      return c.redirect(path, 303)
+      setFlash(setCookies, { ok: false, at: Date.now() })
+      return makeRedirect(path, 303, setCookies)
     }
   }
 
@@ -234,7 +289,7 @@ export async function handleDocumentRequest(
       const out = await r.loader(ctx)
       if (isRedirect(out)) {
         logRequest(method, path, 'loader-redirect', Date.now() - t0)
-        return c.redirect(out.to, out.status ?? 302)
+        return makeRedirect(out.to, out.status ?? 302, setCookies)
       }
       if (isNotFound(out)) {
         hasMatch = false
@@ -247,7 +302,7 @@ export async function handleDocumentRequest(
     } catch (e: unknown) {
       if (isRedirect(e)) {
         logRequest(method, path, 'loader-redirect', Date.now() - t0)
-        return c.redirect(e.to, e.status ?? 302)
+        return makeRedirect(e.to, e.status ?? 302, setCookies)
       }
       if (isNotFound(e)) {
         hasMatch = false
@@ -267,7 +322,7 @@ export async function handleDocumentRequest(
       ? 'Internal Server Error'
       : String(loaderError instanceof Error ? loaderError.stack || loaderError.message : loaderError)
 
-    return c.html(
+    return makeHtml(
       `<!doctype html>
 <html>
   <head>
@@ -309,6 +364,7 @@ export async function handleDocumentRequest(
   </body>
 </html>`,
       500,
+      setCookies,
     )
   }
 
@@ -322,7 +378,7 @@ export async function handleDocumentRequest(
 
   const enableClient = !!(bestMatch as any)?.client
 
-  const flash = readAndClearFlash(c)
+  const flash = readAndClearFlash(cookies, setCookies)
 
   // Minimal ActionApi stub (components may accept it even if unused in SSR)
   const actionStub: ActionApi<FormData, unknown> = {
@@ -409,7 +465,7 @@ export async function handleDocumentRequest(
     .filter(Boolean)
     .join('\n    ')
 
-  return c.html(
+  return makeHtml(
     `<!doctype html>
 <html lang="${escapeHtml(opts.lang ?? 'en')}">
   <head>
@@ -428,5 +484,6 @@ export async function handleDocumentRequest(
   </body>
 </html>`,
     hasMatch ? 200 : 404,
+    setCookies,
   )
 }

@@ -1,7 +1,6 @@
-import { Hono } from 'hono'
 import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
-import { mountApiRoutes } from './mount-api-routes'
+import { handleApiRoutes } from './mount-api-routes'
 
 // Cloudflare Workers entry.
 // SSR lives in this Worker.
@@ -11,29 +10,26 @@ type Env = Record<string, unknown> & {
   ASSETS?: { fetch: (req: Request) => Promise<Response> }
 }
 
-const app = new Hono<{ Bindings: Env }>()
-
-// Serve built client assets (Vite output) from the assets binding.
-app.get('/assets/*', async (c) => {
-  if (!c.env.ASSETS) return c.notFound()
-  return c.env.ASSETS.fetch(c.req.raw)
-})
-
-// File-based API routes (from src/pages/**/route.ts)
-mountApiRoutes(app, fsApiRoutes)
-
-// Everything else: SSR
-app.all('*', (c) =>
-  handleDocumentRequest(c, compiledRoutes, {
-    title: 'vitrio-start',
-    entrySrc: '/assets/entry.js',
-  }),
-)
-
 export default {
-  fetch(request: Request, env: Env, ctx: any) {
+  async fetch(request: Request, env: Env, _ctx: unknown): Promise<Response> {
     // Make env bindings available to non-handler modules (e.g. config.ts).
     ;(globalThis as any).__VITRIO_ENV = env
-    return app.fetch(request, env, ctx)
+
+    const url = new URL(request.url)
+
+    // Serve built client assets from the assets binding.
+    if (url.pathname.startsWith('/assets/') && env.ASSETS) {
+      return env.ASSETS.fetch(request)
+    }
+
+    // File-based API routes (from src/pages/**/route.ts)
+    const apiResponse = await handleApiRoutes(request, fsApiRoutes)
+    if (apiResponse) return apiResponse
+
+    // Everything else: SSR
+    return handleDocumentRequest(request, compiledRoutes, {
+      title: 'vitrio-start',
+      entrySrc: '/assets/entry.js',
+    })
   },
 }

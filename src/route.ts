@@ -1,6 +1,5 @@
 import type { LoaderCtx, ActionApi } from '@potetotown/vitrio'
 import { compilePath, type CompiledPath } from './server/match'
-import type { Context } from 'hono'
 
 /**
  * Per-page metadata exported from page files.
@@ -53,8 +52,11 @@ export interface RouteDef {
 
 export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
 
-/** Handler function for API routes (route.ts files) */
-export type ApiHandler = (c: Context) => Response | Promise<Response>
+/**
+ * Handler function for API routes (route.ts files).
+ * Receives a standard Web API Request and returns a Response.
+ */
+export type ApiHandler = (request: Request) => Response | Promise<Response>
 
 /**
  * API route definition — generated from src/pages/**/route.ts files.
@@ -63,8 +65,8 @@ export type ApiHandler = (c: Context) => Response | Promise<Response>
  *
  * @example
  * // src/pages/api/users/route.ts
- * export async function GET(c: Context) {
- *   return c.json({ users: [] })
+ * export async function GET(request: Request) {
+ *   return Response.json({ users: [] })
  * }
  */
 export interface ApiRouteDef {
