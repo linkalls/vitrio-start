@@ -2,13 +2,13 @@
 // Do not edit manually.
 
 import type { RouteDef, ApiRouteDef } from './route'
-import * as layout0 from './pages/layout'
-import * as p0 from './pages/about/page'
-import * as api0 from './pages/api/hello/route'
+import * as layout0 from "./pages/layout"
+import * as p0 from "./pages/about/page"
+import * as api0 from "./pages/api/hello/route"
 
 export const fsRoutes: RouteDef[] = [
   {
-    path: '/about',
+    path: "/about",
     client: (p0.client ?? false) as boolean,
     metadata: p0.metadata,
     loader: p0.loader,
@@ -19,7 +19,7 @@ export const fsRoutes: RouteDef[] = [
 
 export const fsApiRoutes: ApiRouteDef[] = [
   {
-    path: '/api/hello',
+    path: "/api/hello",
     GET: (api0 as any).GET,
     POST: (api0 as any).POST,
     PUT: (api0 as any).PUT,
@@ -29,4 +29,3 @@ export const fsApiRoutes: ApiRouteDef[] = [
     OPTIONS: (api0 as any).OPTIONS,
   }
 ]
-
