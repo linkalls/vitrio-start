@@ -1,4 +1,5 @@
-import { render, type VNode } from '@potetotown/vitrio'
+import { render } from '@potetotown/vitrio'
+import type { VNode } from '@potetotown/vitrio/jsx-runtime'
 
 export type IslandComponent<P = any> = (props: P) => VNode
 export type IslandRegistry = Record<string, IslandComponent<any>>

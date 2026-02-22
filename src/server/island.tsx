@@ -1,4 +1,4 @@
-import type { VNode } from '@potetotown/vitrio'
+import type { VNode } from '@potetotown/vitrio/jsx-runtime'
 import { IslandMarker } from './islands'
 
 export type AnyProps = Record<string, unknown>
