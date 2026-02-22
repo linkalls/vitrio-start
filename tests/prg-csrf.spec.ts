@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 import { compiledRoutes } from '../src/routes'
 import { handleDocumentRequest } from '../src/server/framework'
 
@@ -23,15 +22,11 @@ function findCookie(setCookies: string[], name: string): string | null {
 }
 
 test('GET sets csrf cookie and returns HTML', async () => {
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
+  const res = await handleDocumentRequest(
+    new Request('http://local.test/counter'),
+    compiledRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
   )
-
-  const res = await app.request('http://local.test/counter')
   expect(res.status).toBe(200)
 
   const setCookies = getSetCookies(res)
@@ -44,21 +39,14 @@ test('GET sets csrf cookie and returns HTML', async () => {
 })
 
 test('POST without csrf does not run action and still redirects (flash=false)', async () => {
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
-  )
-
   const fd = new FormData()
   fd.set('amount', '5')
 
-  const res = await app.request('http://local.test/counter', {
-    method: 'POST',
-    body: fd,
-  })
+  const res = await handleDocumentRequest(
+    new Request('http://local.test/counter', { method: 'POST', body: fd }),
+    compiledRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
+  )
 
   expect(res.status).toBe(303)
   expect(res.headers.get('location')).toBe('/counter')
@@ -70,16 +58,12 @@ test('POST without csrf does not run action and still redirects (flash=false)', 
 })
 
 test('POST with csrf redirects and sets flash=true', async () => {
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, compiledRoutes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
-  )
-
   // 1) GET to obtain csrf cookie
-  const res1 = await app.request('http://local.test/counter')
+  const res1 = await handleDocumentRequest(
+    new Request('http://local.test/counter'),
+    compiledRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
+  )
   const csrf = findCookie(getSetCookies(res1), 'vitrio_csrf')
   expect(csrf).toBeTruthy()
 
@@ -88,13 +72,15 @@ test('POST with csrf redirects and sets flash=true', async () => {
   fd.set('_csrf', csrf!)
   fd.set('amount', '5')
 
-  const res2 = await app.request('http://local.test/counter', {
-    method: 'POST',
-    body: fd,
-    headers: {
-      cookie: `vitrio_csrf=${csrf}`,
-    },
-  })
+  const res2 = await handleDocumentRequest(
+    new Request('http://local.test/counter', {
+      method: 'POST',
+      body: fd,
+      headers: { cookie: `vitrio_csrf=${csrf}` },
+    }),
+    compiledRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
+  )
 
   expect(res2.status).toBe(303)
   const flash = findCookie(getSetCookies(res2), 'vitrio_flash')

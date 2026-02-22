@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "bun run build:routes && bun --hot src/server/dev.tsx",
     "start": "bun run build:routes && bun src/server/index.tsx",
-    "build": "bun run build:routes && bun run build:islands && bun run build:highlight && bun run build:client && bun run build:css", 
+    "build": "bun run build:routes && bun run build:islands && bun run build:highlight && bun run build:client && bun run build:css",
     "build:routes": "bun scripts/gen-routes.ts",
     "build:islands": "node scripts/gen-islands.ts",
     "build:highlight": "node scripts/gen-highlight.mjs",
@@ -17,13 +17,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run build:routes && bun test",
     "bench:match": "bun scripts/bench-match.ts",
-    "bench:hono": "bun scripts/bench-hono.ts",
     "deploy:wrangler": "bunx wrangler deploy",
     "deploy:netlify": "echo 'Bundle src/server/netlify.ts to netlify/functions/server and deploy via Netlify UI/CLI'"
   },
   "dependencies": {
     "@potetotown/vitrio": "github:linkalls/Vitrio#d4ad056",
-    "hono": "^4.9.6",
     "shiki": "^3.22.0",
     "zod": "^4.1.0"
   },

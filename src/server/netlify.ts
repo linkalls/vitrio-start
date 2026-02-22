@@ -1,24 +1,21 @@
-import { Hono } from 'hono'
-import { handle } from 'hono/netlify'
 import { compiledRoutes, fsApiRoutes } from '../routes'
 import { handleDocumentRequest } from './framework'
-import { mountApiRoutes } from './mount-api-routes'
+import { handleApiRoutes } from './mount-api-routes'
 
-// Netlify Functions entry.
-// This runs as a Netlify function (Node runtime) via `hono/netlify` adapter.
+// Netlify Functions entry (Web-standard Request/Response format).
+// Bundle this file to netlify/functions/server and deploy via Netlify UI/CLI.
 
-const app = new Hono()
+export default async (request: Request): Promise<Response> => {
+  // File-based API routes (from src/pages/**/route.ts)
+  const apiResponse = await handleApiRoutes(request, fsApiRoutes)
+  if (apiResponse) return apiResponse
 
-// File-based API routes (from src/pages/**/route.ts)
-mountApiRoutes(app, fsApiRoutes)
-
-app.all('*', (c) =>
-  handleDocumentRequest(c, compiledRoutes, {
+  // Document request (SSR)
+  return handleDocumentRequest(request, compiledRoutes, {
     title: 'vitrio-start',
     // In Netlify, serve built assets via Netlify static hosting.
-    // Point to your built client entry.
     entrySrc: '/assets/entry.js',
-  }),
-)
+  })
+}
 
-export const handler = handle(app)
+export const config = { path: '/*' }

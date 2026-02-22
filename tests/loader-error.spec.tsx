@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 
@@ -15,15 +14,11 @@ test('Loader that throws returns 500', async () => {
     },
   ]
 
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, routes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
+  const res = await handleDocumentRequest(
+    new Request('http://local.test/boom'),
+    routes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
   )
-
-  const res = await app.request('http://local.test/boom')
   expect(res.status).toBe(500)
   const html = await res.text()
   expect(html).toContain('500 Internal Server Error')

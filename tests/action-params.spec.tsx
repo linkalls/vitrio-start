@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 import type { CompiledRouteDef } from '../src/routes'
@@ -35,16 +34,12 @@ const routes: CompiledRouteDef[] = [
 test('POST action receives merged params (parent + leaf)', async () => {
   seen.length = 0
 
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, routes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
-  )
-
   // GET to get csrf cookie
-  const res1 = await app.request('http://local.test/p/123/x')
+  const res1 = await handleDocumentRequest(
+    new Request('http://local.test/p/123/x'),
+    routes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
+  )
   const setCookie = res1.headers.get('set-cookie') || ''
   const m = setCookie.match(/vitrio_csrf=([^;]+)/)
   expect(m).toBeTruthy()
@@ -54,13 +49,15 @@ test('POST action receives merged params (parent + leaf)', async () => {
   const fd = new FormData()
   fd.set('_csrf', csrf)
 
-  const res2 = await app.request('http://local.test/p/123/x', {
-    method: 'POST',
-    body: fd,
-    headers: {
-      cookie: `vitrio_csrf=${csrf}`,
-    },
-  })
+  const res2 = await handleDocumentRequest(
+    new Request('http://local.test/p/123/x', {
+      method: 'POST',
+      body: fd,
+      headers: { cookie: `vitrio_csrf=${csrf}` },
+    }),
+    routes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
+  )
 
   expect(res2.status).toBe(303)
   expect(seen.length).toBe(1)

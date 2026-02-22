@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 import { compilePath } from '../src/server/match'
 import { handleDocumentRequest } from '../src/server/framework'
 import type { CompiledRouteDef } from '../src/routes'
@@ -24,15 +23,11 @@ const localRoutes: CompiledRouteDef[] = [
 test('SSR primes loader cache (loader runs once)', async () => {
   counter.n = 0
 
-  const app = new Hono()
-  app.all('*', (c) =>
-    handleDocumentRequest(c, localRoutes, {
-      title: 'test',
-      entrySrc: '/src/client/entry.tsx',
-    }),
+  const res = await handleDocumentRequest(
+    new Request('http://local.test/x'),
+    localRoutes,
+    { title: 'test', entrySrc: '/src/client/entry.tsx' },
   )
-
-  const res = await app.request('http://local.test/x')
   expect(res.status).toBe(200)
   const html = await res.text()
   expect(html).toContain('true')
