@@ -2,10 +2,11 @@
 
 Bun-first SSR starter for **Vitrio**.
 
-Goal: a *Next.js alternative* for individual projects, but **super simple**:
+Goal: an *Astro / Next.js alternative* for individual projects, but **super simple**, **secure**, and **AI/user-friendly**:
 
 - **No server function / server action RPC magic**
 - **Plain HTTP** + **PRG** (POST → Redirect → GET)
+- **Small and fast** architectural footprint
 - Small files, obvious control flow (AI-friendly)
 
 ## Quick Start (30 seconds)

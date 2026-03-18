@@ -2,7 +2,7 @@
 
 `vitrio-start` is a **Bun-first SSR starter** built on **Vitrio**.
 
-The goal is a *Next.js / TanStack Start alternative* for individual projects, but with:
+The goal is an *Astro / Next.js / TanStack Start alternative* for individual projects, but with a **small and fast** architectural footprint that is **secure**, **simple**, and **AI/user-friendly**:
 
 - **No “server function / server action” RPC magic**
 - **Plain HTTP** (GET for documents, POST for actions)
