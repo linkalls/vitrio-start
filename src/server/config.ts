@@ -36,4 +36,10 @@ export const config = {
 
   /** true in production */
   isProd: env.NODE_ENV === 'production',
+
+  /** Log level for debugging (debug, info, warn, error) */
+  logLevel: env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'warn' : 'info'),
+
+  /** Trust proxy headers (X-Forwarded-For, etc.) */
+  trustProxy: env.TRUST_PROXY === 'true' || false,
 }

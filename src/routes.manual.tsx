@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { HIGHLIGHT } from './server/highlight'
 import { defineRoute, type RouteDef } from './route'
 
-export const manualRoutes: RouteDef[] = [
+export const manualRoutes: RouteDef<any, any>[] = [
   defineRoute({
     path: '/',
     loader: () => ({ now: Date.now() }),

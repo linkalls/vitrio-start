@@ -147,14 +147,14 @@ function getApplicableLayouts(pageFile: string): LayoutEntry[] {
  */
 function buildComponentExpr(pageAlias: string, applicableLayouts: LayoutEntry[]): string {
   if (applicableLayouts.length === 0) {
-    return `${pageAlias}.default ?? ${pageAlias}.component`
+    return `((${pageAlias} as any).default ?? (${pageAlias} as any).component) as any`
   }
-  let inner = `(${pageAlias}.default ?? ${pageAlias}.component)(props)`
+  let inner = `((${pageAlias} as any).default ?? (${pageAlias} as any).component)(props)`
   // Wrap from innermost layout outward
   for (const layout of [...applicableLayouts].reverse()) {
     inner = `(${layout.alias}.default as any)({ children: ${inner} })`
   }
-  return `(props) => ${inner}`
+  return `(props) => ${inner} as any`
 }
 
 // --- Generate output ---
@@ -183,16 +183,16 @@ const pageEntries: string[] = pages.map((p) => {
   return [
     '  {',
     `    path: ${JSON.stringify(p.routePath)},`,
-    `    client: (${p.alias}.client ?? false) as boolean,`,
-    `    metadata: ${p.alias}.metadata,`,
-    `    loader: ${p.alias}.loader,`,
-    `    action: ${p.alias}.action,`,
+    `    client: ((${p.alias} as any).client ?? false) as boolean,`,
+    `    metadata: (${p.alias} as any).metadata,`,
+    `    loader: (${p.alias} as any).loader,`,
+    `    action: (${p.alias} as any).action,`,
     `    component: ${componentExpr} as any,`,
     '  }',
   ].join('\n')
 })
 
-lines.push(`export const fsRoutes: RouteDef[] = [`)
+lines.push(`export const fsRoutes: RouteDef<any, any>[] = [`)
 lines.push(pageEntries.join(',\n'))
 lines.push(`]`)
 lines.push('')

@@ -1,5 +1,9 @@
 import type { LoaderCtx, ActionApi } from '@potetotown/vitrio'
 import { compilePath, type CompiledPath } from './server/match'
+import type { RedirectResult, NotFoundResult } from './server/response'
+
+export type LoaderResult<T = unknown> = RedirectResult | NotFoundResult | T
+export type ActionResult<T = unknown> = RedirectResult | NotFoundResult | T
 
 /**
  * Per-page metadata exported from page files.
@@ -32,7 +36,7 @@ export interface PageMetadata {
   noIndex?: boolean
 }
 
-export interface RouteDef {
+export interface RouteDef<TLoaderData = unknown, TActionData = unknown> {
   path: string
   /**
    * Enable client-side JS for this route ("use client"-style).
@@ -41,16 +45,16 @@ export interface RouteDef {
   client?: boolean
   /** Per-page metadata for the HTML document head (title, description, OG, etc.) */
   metadata?: PageMetadata
-  loader?: (ctx: LoaderCtx) => Promise<unknown> | unknown
-  action?: (ctx: LoaderCtx, formData: FormData) => Promise<unknown> | unknown
+  loader?: (ctx: LoaderCtx) => Promise<LoaderResult<TLoaderData>> | LoaderResult<TLoaderData>
+  action?: (ctx: LoaderCtx, formData: FormData) => Promise<ActionResult<TActionData>> | ActionResult<TActionData>
   component: (props: {
-    data: unknown
-    action: ActionApi<FormData, unknown>
+    data: TLoaderData
+    action: ActionApi<FormData, TActionData>
     csrfToken: string
   }) => unknown
 }
 
-export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
+export type CompiledRouteDef = RouteDef<unknown, unknown> & { _compiled: CompiledPath }
 
 /**
  * Handler function for API routes (route.ts files).
@@ -59,7 +63,7 @@ export type CompiledRouteDef = RouteDef & { _compiled: CompiledPath }
 export type ApiHandler = (request: Request) => Response | Promise<Response>
 
 /**
- * API route definition — generated from src/pages/**/route.ts files.
+ * API route definition — generated from src/pages/api/route.ts files.
  * Export GET, POST, PUT, PATCH, DELETE, HEAD, or OPTIONS from a route.ts file
  * to handle the corresponding HTTP methods as a JSON API endpoint.
  *
@@ -80,11 +84,13 @@ export interface ApiRouteDef {
   OPTIONS?: ApiHandler
 }
 
-export function defineRoute(route: RouteDef): RouteDef {
+export function defineRoute<TLoaderData = unknown, TActionData = unknown>(
+  route: RouteDef<TLoaderData, TActionData>,
+): RouteDef<TLoaderData, TActionData> {
   return route
 }
 
-export function compileRoutes(routes: RouteDef[]): CompiledRouteDef[] {
+export function compileRoutes(routes: RouteDef<unknown, unknown>[]): CompiledRouteDef[] {
   return routes.map((r) => ({
     ...r,
     _compiled: compilePath(r.path),

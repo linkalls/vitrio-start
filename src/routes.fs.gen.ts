@@ -6,14 +6,14 @@ import * as layout0 from "./pages/layout"
 import * as p0 from "./pages/about/page"
 import * as api0 from "./pages/api/hello/route"
 
-export const fsRoutes: RouteDef[] = [
+export const fsRoutes: RouteDef<any, any>[] = [
   {
     path: "/about",
-    client: (p0.client ?? false) as boolean,
-    metadata: p0.metadata,
-    loader: p0.loader,
-    action: p0.action,
-    component: (props) => (layout0.default as any)({ children: (p0.default ?? p0.component)(props) }) as any,
+    client: ((p0 as any).client ?? false) as boolean,
+    metadata: (p0 as any).metadata,
+    loader: (p0 as any).loader,
+    action: (p0 as any).action,
+    component: (props) => (layout0.default as any)({ children: ((p0 as any).default ?? (p0 as any).component)(props) }) as any as any,
   }
 ]
 

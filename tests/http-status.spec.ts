@@ -10,7 +10,7 @@ test('GET unknown path returns 404 status (document)', async () => {
   )
   expect(res.status).toBe(404)
   const html = await res.text()
-  expect(html).toContain('<div id="app">')
+  expect(html).toContain('404 Not Found')
 })
 
 test('GET known path returns 200 status', async () => {

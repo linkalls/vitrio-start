@@ -3,7 +3,7 @@ import type { ApiRouteDef } from '../route'
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
 
 /**
- * Handle file-based API routes (from src/pages/**/route.ts).
+ * Handle file-based API routes (from src/pages/api/route.ts).
  * Returns a Response if a route matches, or null if no route matches.
  * Called in each server entry (index.tsx, dev.tsx, workers.ts, netlify.ts).
  */
