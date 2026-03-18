@@ -56,12 +56,18 @@ function serializeCookie(name: string, value: string, opts: CookieOptions = {}):
 function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff')
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Minimal CSP: only same-origin by default + inline scripts (for dehydration).
-  // Tighten per-project as needed.
-  headers.set(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-  )
+
+  if (config.security.hsts && config.isProd) {
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
+
+  if (typeof config.security.frameOptions === 'string') {
+    headers.set('X-Frame-Options', config.security.frameOptions)
+  }
+
+  if (config.security.csp) {
+    headers.set('Content-Security-Policy', config.security.csp)
+  }
 }
 
 function makeRedirect(location: string, status: number, setCookies: string[]): Response {
@@ -134,9 +140,17 @@ type CacheEntry =
 
 // --- Logging helpers ---
 
-function logRequest(method: string, path: string, label: string, ms: number) {
+export function generateRequestId(): string {
+  const c = globalThis.crypto
+  if (c && 'randomUUID' in c && typeof c.randomUUID === 'function') {
+    return c.randomUUID()
+  }
+  return String(Math.random()).slice(2)
+}
+
+function logRequest(reqId: string, method: string, path: string, label: string, ms: number) {
   if (config.isProd) return
-  console.log(`[vitrio] ${method} ${path} → ${label} (${ms}ms)`)
+  console.log(`[vitrio] ${reqId.slice(0, 8)} ${method} ${path} → ${label} (${ms}ms)`)
 }
 
 async function runMatchedAction(
@@ -197,6 +211,7 @@ export async function handleDocumentRequest(
   opts: { title: string; entrySrc: string; lang?: string },
 ): Promise<Response> {
   const t0 = Date.now()
+  const reqId = generateRequestId()
   const method = request.method
   const url = new URL(request.url)
   const path = url.pathname
@@ -221,7 +236,7 @@ export async function handleDocumentRequest(
     try {
       const r = await runMatchedAction(request, cookies, routes, path, url)
 
-      logRequest(method, path, r.kind, Date.now() - t0)
+      logRequest(reqId, method, path, r.kind, Date.now() - t0)
 
       if (r.kind === 'redirect') {
         // explicit redirect from action (no flash)
@@ -247,8 +262,8 @@ export async function handleDocumentRequest(
       setFlash(setCookies, { ok: true, at: Date.now(), ...(newCount != null ? { newCount } : {}) })
       return makeRedirect(path, 303, setCookies)
     } catch (e) {
-      console.error('Action failed', e)
-      logRequest(method, path, 'error', Date.now() - t0)
+      console.error(`[vitrio] ${reqId.slice(0, 8)} Action failed`, e)
+      logRequest(reqId, method, path, 'error', Date.now() - t0)
       setFlash(setCookies, { ok: false, at: Date.now() })
       return makeRedirect(path, 303, setCookies)
     }
@@ -288,7 +303,7 @@ export async function handleDocumentRequest(
     try {
       const out = await r.loader(ctx)
       if (isRedirect(out)) {
-        logRequest(method, path, 'loader-redirect', Date.now() - t0)
+        logRequest(reqId, method, path, 'loader-redirect', Date.now() - t0)
         return makeRedirect(out.to, out.status ?? 302, setCookies)
       }
       if (isNotFound(out)) {
@@ -301,7 +316,7 @@ export async function handleDocumentRequest(
       cacheMap.set(key, { status: 'fulfilled', value: out })
     } catch (e: unknown) {
       if (isRedirect(e)) {
-        logRequest(method, path, 'loader-redirect', Date.now() - t0)
+        logRequest(reqId, method, path, 'loader-redirect', Date.now() - t0)
         return makeRedirect(e.to, e.status ?? 302, setCookies)
       }
       if (isNotFound(e)) {
@@ -309,7 +324,7 @@ export async function handleDocumentRequest(
         break
       }
       // Loader threw an unexpected error → 500
-      console.error('Loader error', e)
+      console.error(`[vitrio] ${reqId.slice(0, 8)} Loader error`, e)
       loaderError = e
       break
     }
@@ -317,9 +332,9 @@ export async function handleDocumentRequest(
 
   // If a loader threw, render a 500 error page
   if (loaderError) {
-    logRequest(method, path, '500', Date.now() - t0)
+    logRequest(reqId, method, path, '500', Date.now() - t0)
     const errorMessage = config.isProd
-      ? 'Internal Server Error'
+      ? `Internal Server Error (Request ID: ${reqId})`
       : String(loaderError instanceof Error ? loaderError.stack || loaderError.message : loaderError)
 
     return makeHtml(
@@ -407,9 +422,49 @@ export async function handleDocumentRequest(
     hasMatch = false
   }
 
+  if (!hasMatch && !bestMatch) {
+    logRequest(reqId, method, path, '404', Date.now() - t0)
+    return makeHtml(
+      `<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 Not Found - ${opts.title}</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        text-align: center;
+        padding: 50px 20px;
+        color: #333;
+      }
+      h1 { font-size: 2.5em; margin-bottom: 10px; color: #555; }
+      p { font-size: 1.2em; color: #777; margin-bottom: 30px; }
+      a {
+        text-decoration: none;
+        color: #0066cc;
+        border: 1px solid #0066cc;
+        padding: 10px 20px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+      a:hover { background: #0066cc; color: white; }
+    </style>
+  </head>
+  <body>
+    <h1>404 Not Found</h1>
+    <p>The page you are looking for does not exist.</p>
+    <a href="/">Go Home</a>
+  </body>
+</html>`,
+      404,
+      setCookies,
+    )
+  }
+
   const body = await renderToStringAsync(ssrVNode as any)
 
-  logRequest(method, path, hasMatch ? '200' : '404', Date.now() - t0)
+  logRequest(reqId, method, path, hasMatch ? '200' : '404', Date.now() - t0)
 
   const flashBanner =
     flash && flash.ok

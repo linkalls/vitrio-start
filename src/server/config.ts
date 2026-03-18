@@ -36,4 +36,23 @@ export const config = {
 
   /** true in production */
   isProd: env.NODE_ENV === 'production',
+
+  /** Log level for debugging (debug, info, warn, error) */
+  logLevel: env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'warn' : 'info'),
+
+  /** Trust proxy headers (X-Forwarded-For, etc.) */
+  trustProxy: env.TRUST_PROXY === 'true' || false,
+
+  /**
+   * Security Headers Configuration
+   * Provides sensible defaults for a secure-by-default posture.
+   */
+  security: {
+    /** HTTP Strict Transport Security (HSTS) */
+    hsts: env.HSTS !== 'false',
+    /** X-Frame-Options (DENY, SAMEORIGIN, or 'false' to disable) */
+    frameOptions: env.FRAME_OPTIONS === 'false' ? false : (env.FRAME_OPTIONS || 'DENY'),
+    /** Content Security Policy (CSP). Default allows inline scripts/styles for dehydration. */
+    csp: env.CSP || "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+  }
 }

@@ -147,14 +147,14 @@ function getApplicableLayouts(pageFile: string): LayoutEntry[] {
  */
 function buildComponentExpr(pageAlias: string, applicableLayouts: LayoutEntry[]): string {
   if (applicableLayouts.length === 0) {
-    return `${pageAlias}.default ?? ${pageAlias}.component`
+    return `(${pageAlias} as unknown as { default?: RouteDef['component'], component?: RouteDef['component'] }).default ?? (${pageAlias} as unknown as { default?: RouteDef['component'], component?: RouteDef['component'] }).component`
   }
-  let inner = `(${pageAlias}.default ?? ${pageAlias}.component)(props)`
+  let inner = `!((${pageAlias} as unknown as { default?: Function, component?: Function }).default ?? (${pageAlias} as unknown as { default?: Function, component?: Function }).component) ? null : ((${pageAlias} as unknown as { default?: Function, component?: Function }).default ?? (${pageAlias} as unknown as { default?: Function, component?: Function }).component)!(props)`
   // Wrap from innermost layout outward
   for (const layout of [...applicableLayouts].reverse()) {
-    inner = `(${layout.alias}.default as any)({ children: ${inner} })`
+    inner = `(${layout.alias} as unknown as { default: Function }).default({ children: ${inner} })`
   }
-  return `(props) => ${inner}`
+  return `(props: Parameters<RouteDef['component']>[0]) => ${inner}`
 }
 
 // --- Generate output ---
@@ -183,16 +183,16 @@ const pageEntries: string[] = pages.map((p) => {
   return [
     '  {',
     `    path: ${JSON.stringify(p.routePath)},`,
-    `    client: (${p.alias}.client ?? false) as boolean,`,
-    `    metadata: ${p.alias}.metadata,`,
-    `    loader: ${p.alias}.loader,`,
-    `    action: ${p.alias}.action,`,
-    `    component: ${componentExpr} as any,`,
+    `    client: ((${p.alias} as unknown as { client?: boolean }).client ?? false),`,
+    `    metadata: (${p.alias} as unknown as { metadata?: RouteDef['metadata'] }).metadata,`,
+    `    loader: (${p.alias} as unknown as { loader?: RouteDef['loader'] }).loader,`,
+    `    action: (${p.alias} as unknown as { action?: RouteDef['action'] }).action,`,
+    `    component: ${componentExpr} as RouteDef['component'],`,
     '  }',
   ].join('\n')
 })
 
-lines.push(`export const fsRoutes: RouteDef[] = [`)
+lines.push(`export const fsRoutes: RouteDef<unknown, unknown>[] = [`)
 lines.push(pageEntries.join(',\n'))
 lines.push(`]`)
 lines.push('')
@@ -200,7 +200,7 @@ lines.push('')
 // fsApiRoutes — HTTP method handlers from route.ts files
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
 const apiEntries: string[] = apis.map((a) => {
-  const methodLines = HTTP_METHODS.map((m) => `    ${m}: (${a.alias} as any).${m},`).join('\n')
+  const methodLines = HTTP_METHODS.map((m) => `    ${m}: (${a.alias} as unknown as ApiRouteDef).${m},`).join('\n')
   return ['  {', `    path: ${JSON.stringify(a.routePath)},`, methodLines, '  }'].join('\n')
 })
 
