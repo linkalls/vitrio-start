@@ -16,7 +16,7 @@ export async function handleApiRoutes(
 
   for (const route of routes) {
     if (url.pathname === route.path) {
-      const handler = (route as any)[method]
+      const handler = route[method as keyof ApiRouteDef]
       if (typeof handler === 'function') {
         return await handler(request)
       }

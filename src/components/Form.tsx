@@ -6,8 +6,13 @@
  *
  * This follows the framework's philosophy of explicit, simple HTML + PRG.
  */
-export function Form(props: any) {
-  const { method = 'post', csrfToken, children, ...rest } = props
+export interface FormProps extends Omit<JSX.IntrinsicElements['form'], 'method'> {
+  method?: 'post' | 'get'
+  csrfToken?: string
+  children?: unknown
+}
+
+export function Form({ method = 'post', csrfToken, children, ...rest }: FormProps) {
   const isPost = String(method).toLowerCase() === 'post'
 
   return (

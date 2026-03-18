@@ -6,26 +6,26 @@ import * as layout0 from "./pages/layout"
 import * as p0 from "./pages/about/page"
 import * as api0 from "./pages/api/hello/route"
 
-export const fsRoutes: RouteDef<any, any>[] = [
+export const fsRoutes: RouteDef<unknown, unknown>[] = [
   {
     path: "/about",
-    client: ((p0 as any).client ?? false) as boolean,
-    metadata: (p0 as any).metadata,
-    loader: (p0 as any).loader,
-    action: (p0 as any).action,
-    component: (props) => (layout0.default as any)({ children: ((p0 as any).default ?? (p0 as any).component)(props) }) as any as any,
+    client: ((p0 as unknown as { client?: boolean }).client ?? false),
+    metadata: (p0 as unknown as { metadata?: RouteDef['metadata'] }).metadata,
+    loader: (p0 as unknown as { loader?: RouteDef['loader'] }).loader,
+    action: (p0 as unknown as { action?: RouteDef['action'] }).action,
+    component: (props: Parameters<RouteDef['component']>[0]) => (layout0 as unknown as { default: Function }).default({ children: !((p0 as unknown as { default?: Function, component?: Function }).default ?? (p0 as unknown as { default?: Function, component?: Function }).component) ? null : ((p0 as unknown as { default?: Function, component?: Function }).default ?? (p0 as unknown as { default?: Function, component?: Function }).component)!(props) }) as RouteDef['component'],
   }
 ]
 
 export const fsApiRoutes: ApiRouteDef[] = [
   {
     path: "/api/hello",
-    GET: (api0 as any).GET,
-    POST: (api0 as any).POST,
-    PUT: (api0 as any).PUT,
-    PATCH: (api0 as any).PATCH,
-    DELETE: (api0 as any).DELETE,
-    HEAD: (api0 as any).HEAD,
-    OPTIONS: (api0 as any).OPTIONS,
+    GET: (api0 as unknown as ApiRouteDef).GET,
+    POST: (api0 as unknown as ApiRouteDef).POST,
+    PUT: (api0 as unknown as ApiRouteDef).PUT,
+    PATCH: (api0 as unknown as ApiRouteDef).PATCH,
+    DELETE: (api0 as unknown as ApiRouteDef).DELETE,
+    HEAD: (api0 as unknown as ApiRouteDef).HEAD,
+    OPTIONS: (api0 as unknown as ApiRouteDef).OPTIONS,
   }
 ]
