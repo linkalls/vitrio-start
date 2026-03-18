@@ -2,8 +2,8 @@
 
 `vitrio-start` は **Bun-first** の **Vitrio SSRスターター**なん。
 
-狙いは *Next.js / TanStack Start の代替*だけど、
-**個人開発向けに “魔術なしでシンプル”** を最優先にしてる。
+狙いは *Astro / Next.js / TanStack Start の代替*だけど、
+**個人開発向けに “魔術なしでシンプル、セキュア、AI/ユーザーフレンドリー”** で、**小さくて速い**アーキテクチャを最優先にしてる。
 
 - **server function / server action 的なRPC魔術はしない**
 - **HTTPの基本だけ**（GET=ドキュメント、POST=アクション）

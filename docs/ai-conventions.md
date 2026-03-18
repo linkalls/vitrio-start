@@ -4,10 +4,11 @@ This document outlines the conventions used in vitrio-start that make it easy fo
 
 ## Core Principles
 
-1. **No Magic** - Everything is explicit. No hidden code generation, no implicit endpoints.
+1. **No Magic** - Everything is explicit. No hidden code generation, no implicit endpoints. This makes it a simple and user-friendly alternative to complex frameworks like Next.js or Astro.
 2. **Predictable Structure** - Files are organized in a consistent, discoverable way.
 3. **Small Files** - Each file has a single, clear responsibility.
 4. **Plain HTTP** - Routes use standard HTTP methods (GET/POST), not RPC.
+5. **Secure & Small** - A small architectural footprint with built-in security (CSRF, PRG) by default.
 
 ---
 
