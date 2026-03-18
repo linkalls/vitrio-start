@@ -56,12 +56,18 @@ function serializeCookie(name: string, value: string, opts: CookieOptions = {}):
 function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff')
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Minimal CSP: only same-origin by default + inline scripts (for dehydration).
-  // Tighten per-project as needed.
-  headers.set(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-  )
+
+  if (config.security.hsts && config.isProd) {
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
+
+  if (typeof config.security.frameOptions === 'string') {
+    headers.set('X-Frame-Options', config.security.frameOptions)
+  }
+
+  if (config.security.csp) {
+    headers.set('Content-Security-Policy', config.security.csp)
+  }
 }
 
 function makeRedirect(location: string, status: number, setCookies: string[]): Response {

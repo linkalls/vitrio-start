@@ -14,6 +14,7 @@
     "build:highlight": "node scripts/gen-highlight.mjs",
     "build:client": "bunx vite build && node scripts/fix-entry.js",
     "build:css": "bunx @tailwindcss/cli -i src/client/tailwind.css -o dist/client/assets/tailwind.css --minify",
+    "build:static": "bun scripts/build-static.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run build:routes && bun test",
     "bench:match": "bun scripts/bench-match.ts",
